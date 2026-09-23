@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import ThreeMFKit
+import ThreeMFRendering
 
 struct ModelDetailView: View {
     let file: ModelFileItem

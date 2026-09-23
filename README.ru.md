@@ -21,6 +21,7 @@
 - **Цвета из проекта слайсера**: цвета филаментов Bambu Studio / OrcaSlicer (`project_settings.config`) и PrusaSlicer (`Slic3r_PE.config`), экструдеры для объектов и частей, мультиматериальная покраска (`paint_color`, `mmu_segmentation`), цвета материалов 3MF (`basematerials`, `colorgroup`).
 - **Правильная геометрия**: компоненты, production-расширение (объекты в `3D/Objects/*.model`), трансформации, единицы измерения. Модификаторы и отрицательные объёмы скрыты.
 - **Информационная панель**: размеры в мм, число объектов и треугольников, филаменты, название, автор, приложение.
+- **Quick Look в Finder**: нажмите пробел на файле `.3mf`, и модель можно вращать в 3D прямо в окне Quick Look. Вместо иконок файлов Finder показывает превью моделей.
 - **«Открыть в программе»**: модель можно отправить в Bambu Studio, PrusaSlicer, OrcaSlicer или любое другое приложение. Есть «Показать в Finder» и «Скопировать путь».
 - Интерфейс на русском и английском. Сторонних зависимостей нет.
 
@@ -31,6 +32,8 @@ macOS 13 Ventura или новее, Apple Silicon или Intel.
 ## Установка
 
 Скачайте `3MF-Viewer-x.y.z.zip` в разделе [Releases](../../releases), распакуйте и перенесите **3MF Viewer.app** в «Программы».
+
+Запустите приложение один раз: так регистрируются расширения Quick Look. Если превью по пробелу не появилось, откройте «Системные настройки → Основные → Объекты входа и расширения → Quick Look» и включите **3MF Viewer**.
 
 Приложение не нотаризовано Apple, поэтому Gatekeeper заблокирует первый запуск. Есть три способа его разрешить:
 
@@ -47,11 +50,12 @@ xattr -dr com.apple.quarantine "/Applications/3MF Viewer.app"
 Нужен Xcode 15 или новее (или Command Line Tools).
 
 ```sh
-git clone https://github.com/<you>/3mf-viewer.git
+git clone https://github.com/1300023/3mf-viewer.git
 cd 3mf-viewer
 
 swift run                       # быстрый запуск из терминала
 ./scripts/build-app.sh          # собрать "build/3MF Viewer.app"
+./scripts/build-app.sh --install    # собрать, скопировать в /Applications и подключить Quick Look
 UNIVERSAL=1 ./scripts/build-app.sh --zip   # универсальный бинарник + zip для релиза
 swift test                      # тесты парсера (нужен Xcode)
 ```
@@ -68,11 +72,13 @@ Sources/ThreeMFKit/        разбор 3MF, без UI и без зависим�
   SlicerConfig.swift         данные проектов Bambu Studio / OrcaSlicer / PrusaSlicer
   PaintDecoder.swift         декодер мультиматериальной покраски
   ThreeMFReader.swift        публичный API: load(url:), thumbnailData(url:)
+Sources/ThreeMFRendering/  сцена SceneKit и офскрин-рендер (общий код)
 Sources/ThreeMFViewer/     приложение на SwiftUI
   Library/                   сканирование папки, кэш миниатюр
-  Rendering/                 сцена SceneKit, геометрия, офскрин-рендер миниатюр
+  Rendering/                 SwiftUI-обёртка над SCNView
   Views/                     боковая панель, 3D-вид, информационная панель
-Packaging/                 Info.plist, иконка и локализации для .app
+Sources/Extensions/        расширения Quick Look: превью (пробел) и миниатюры (иконки в Finder)
+Packaging/                 Info.plist, entitlements, иконка и локализации для бандлов
 scripts/                   build-app.sh, генераторы иконки и тестовых файлов
 Tests/ThreeMFKitTests/     тесты парсера с маленькими .3mf-файлами
 ```
@@ -85,7 +91,6 @@ Tests/ThreeMFKitTests/     тесты парсера с маленькими .3m
 
 ## Идеи на будущее
 
-- Расширение Quick Look (превью `.3mf` в Finder по пробелу)
 - Выбор стола в многостоловых проектах Bambu
 - Режим сетки (галерея), теги и избранное
 

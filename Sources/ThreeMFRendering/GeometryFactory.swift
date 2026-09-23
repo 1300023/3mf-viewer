@@ -2,7 +2,7 @@ import AppKit
 import SceneKit
 import ThreeMFKit
 
-enum GeometryFactory {
+public enum GeometryFactory {
     /// Builds flat-shaded geometry: every triangle gets its own three vertices and a face normal,
     /// which is how STL/3MF viewers and slicers display printable meshes.
     /// Multi-coloured meshes use per-vertex colours (one draw call regardless of colour count).
@@ -126,7 +126,7 @@ enum GeometryFactory {
         return material
     }
 
-    static func nsColor(_ color: RGBAColor) -> NSColor {
+    public static func nsColor(_ color: RGBAColor) -> NSColor {
         NSColor(srgbRed: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
     }
 

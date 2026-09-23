@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import ThreeMFKit
+import ThreeMFRendering
 
 struct LoadedModel {
     /// nil when the archive has no model part (e.g. a sliced ".gcode.3mf").

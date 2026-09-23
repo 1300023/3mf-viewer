@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>3MF Viewer Quick Look</string>
+	<key>CFBundleName</key>
+	<string>3MF Viewer Quick Look</string>
+	<key>CFBundleExecutable</key>
+	<string>ThreeMFQuickLook</string>
+	<key>CFBundleIdentifier</key>
+	<string>__BUNDLE_ID__.quicklook</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>XPC!</string>
+	<key>CFBundleShortVersionString</key>
+	<string>__VERSION__</string>
+	<key>CFBundleVersion</key>
+	<string>__BUILD__</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<!-- .3mf has no system UTI: Bambu Studio registers com.bambulab.3mf, otherwise macOS
+			     uses the dynamic type dyn.ah62d4rv4ge8xg5pg (= extension "3mf"). -->
+			<key>QLSupportedContentTypes</key>
+			<array>
+				<string>com.bambulab.3mf</string>
+				<string>dyn.ah62d4rv4ge8xg5pg</string>
+				<string>dyn.ah62d4rv4ge8xgxng</string>
+			</array>
+			<key>QLIsDataBasedPreview</key>
+			<false/>
+			<key>QLSupportsSearchableItems</key>
+			<false/>
+		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.quicklook.preview</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>PreviewViewController</string>
+	</dict>
+</dict>
+</plist>

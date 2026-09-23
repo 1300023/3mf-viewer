@@ -2,25 +2,31 @@ import AppKit
 import SceneKit
 import ThreeMFKit
 
-struct ViewerOptions: Equatable {
-    var showColors = true
-    var wireframe = false
-    var showPlate = true
+public struct ViewerOptions: Equatable, Sendable {
+    public var showColors: Bool
+    public var wireframe: Bool
+    public var showPlate: Bool
+
+    public init(showColors: Bool = true, wireframe: Bool = false, showPlate: Bool = true) {
+        self.showColors = showColors
+        self.wireframe = wireframe
+        self.showPlate = showPlate
+    }
 }
 
 /// A SceneKit scene built from a `ThreeMFModel`.
 ///
 /// 3MF is Z-up and measured in model units; SceneKit is Y-up. The model is converted to
 /// millimetres, centred on the origin and put on the "build plate" (z = 0).
-final class ViewerScene: @unchecked Sendable {
-    static let defaultColor = NSColor(calibratedRed: 0.70, green: 0.74, blue: 0.80, alpha: 1)
+public final class ViewerScene: @unchecked Sendable {
+    public static let defaultColor = NSColor(calibratedRed: 0.70, green: 0.74, blue: 0.80, alpha: 1)
 
-    let scene = SCNScene()
-    let cameraNode = SCNNode()
+    public let scene = SCNScene()
+    public let cameraNode = SCNNode()
     /// Point the camera orbits around (scene coordinates).
-    private(set) var target = SCNVector3(x: 0, y: 0, z: 0)
+    public private(set) var target = SCNVector3(x: 0, y: 0, z: 0)
     /// Model size in millimetres.
-    let size: SIMD3<Double>
+    public let size: SIMD3<Double>
 
     private let worldNode = SCNNode()
     private let modelContainer = SCNNode()
@@ -31,7 +37,7 @@ final class ViewerScene: @unchecked Sendable {
     private var homePosition = SCNVector3(x: 0, y: 0, z: 1)
     private let fieldOfView: CGFloat = 30
 
-    init(model: ThreeMFModel, includePlate: Bool = true) {
+    public init(model: ThreeMFModel, includePlate: Bool = true) {
         let unitScale = model.unit.millimeters
         let bounds = model.bounds ?? BoundingBox(min: .zero, max: .zero)
         let lo = bounds.min * unitScale
@@ -81,7 +87,7 @@ final class ViewerScene: @unchecked Sendable {
 
     // MARK: - Options
 
-    func apply(_ options: ViewerOptions) {
+    public func apply(_ options: ViewerOptions) {
         guard options != appliedOptions else { return }
         appliedOptions = options
         for entry in modelNodes {
@@ -107,7 +113,7 @@ final class ViewerScene: @unchecked Sendable {
 
     // MARK: - Camera & lights
 
-    func resetCamera(animated: Bool) {
+    public func resetCamera(animated: Bool) {
         SCNTransaction.begin()
         SCNTransaction.animationDuration = animated ? 0.35 : 0
         cameraNode.camera?.fieldOfView = fieldOfView
@@ -178,5 +184,25 @@ extension Transform3D {
                           m21: v[3], m22: v[4], m23: v[5], m24: 0,
                           m31: v[6], m32: v[7], m33: v[8], m34: 0,
                           m41: v[9], m42: v[10], m43: v[11], m44: 1)
+    }
+}
+
+public extension ViewerScene {
+    /// Shows this scene in `view` with turntable-style camera controls.
+    func attach(to view: SCNView) {
+        view.scene = scene
+        view.pointOfView = cameraNode
+        view.allowsCameraControl = true
+        view.autoenablesDefaultLighting = false
+        let controller = view.defaultCameraController
+        controller.interactionMode = .orbitTurntable
+        controller.inertiaEnabled = true
+        controller.worldUp = SCNVector3(x: 0, y: 1, z: 0)
+        controller.target = target
+    }
+
+    /// Background colour used by the viewer for the given appearance.
+    static func backgroundColor(dark: Bool) -> NSColor {
+        dark ? NSColor(calibratedWhite: 0.13, alpha: 1) : NSColor(calibratedWhite: 0.93, alpha: 1)
     }
 }

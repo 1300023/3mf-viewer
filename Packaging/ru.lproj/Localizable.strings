@@ -63,6 +63,9 @@
 "License" = "Лицензия";
 "Copyright" = "Авторские права";
 
+/* Quick Look */
+"Triangles: %@" = "Треугольников: %@";
+
 /* Menus */
 "Open Folder…" = "Открыть папку…";
 "Clear Thumbnail Cache" = "Очистить кэш превью";

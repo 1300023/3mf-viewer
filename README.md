@@ -21,6 +21,7 @@
 - **Colours from the slicer project**: filament colours from Bambu Studio / OrcaSlicer (`project_settings.config`) and PrusaSlicer (`Slic3r_PE.config`), per-object / per-part extruders, multi-material painting (`paint_color`, `mmu_segmentation`), and 3MF material colours (`basematerials`, `colorgroup`).
 - **Correct geometry**: components, the production extension (objects stored in `3D/Objects/*.model`), transforms, units; modifiers / negative volumes are hidden.
 - **Info panel**: dimensions in mm, object and triangle counts, filaments, title, designer, application.
+- **Quick Look in Finder**: press Space on a `.3mf` to rotate the model in 3D right in the Quick Look window, and see model previews as file icons.
 - **Open With…** — send the model to Bambu Studio, PrusaSlicer, OrcaSlicer or any other app; Show in Finder, Copy Path.
 - English and Russian UI. No third-party dependencies.
 
@@ -31,6 +32,8 @@ macOS 13 Ventura or newer, Apple Silicon or Intel.
 ## Install
 
 Download `3MF-Viewer-x.y.z.zip` from [Releases](../../releases), unzip it and move **3MF Viewer.app** to *Applications*.
+
+Launch the app once — this registers the Quick Look extensions. If the Space-bar preview does not appear, check *System Settings → General → Login Items & Extensions → Quick Look* and make sure **3MF Viewer** is enabled.
 
 The app is not notarized by Apple, so the first launch is blocked by Gatekeeper. Either right-click the app → **Open**, or allow it in *System Settings → Privacy & Security → Open Anyway*, or run:
 
@@ -43,11 +46,12 @@ xattr -dr com.apple.quarantine "/Applications/3MF Viewer.app"
 You need Xcode 15 or newer (or the Xcode command-line tools).
 
 ```sh
-git clone https://github.com/<you>/3mf-viewer.git
+git clone https://github.com/1300023/3mf-viewer.git
 cd 3mf-viewer
 
 swift run                       # quick start from the terminal
 ./scripts/build-app.sh          # build "build/3MF Viewer.app"
+./scripts/build-app.sh --install    # build, copy to /Applications, register Quick Look
 UNIVERSAL=1 ./scripts/build-app.sh --zip   # universal binary + zip for a release
 swift test                      # unit tests for the parser (needs Xcode)
 ```
@@ -64,11 +68,13 @@ Sources/ThreeMFKit/        3MF parsing, no UI and no dependencies
   SlicerConfig.swift         Bambu Studio / OrcaSlicer / PrusaSlicer project data
   PaintDecoder.swift         multi-material painting decoder
   ThreeMFReader.swift        public API: load(url:), thumbnailData(url:)
+Sources/ThreeMFRendering/  SceneKit scene + off-screen renderer (shared)
 Sources/ThreeMFViewer/     the SwiftUI app
   Library/                   folder scanning, thumbnail cache
-  Rendering/                 SceneKit scene, geometry, off-screen thumbnails
+  Rendering/                 SwiftUI wrapper around SCNView
   Views/                     sidebar, 3D view, info panel
-Packaging/                 Info.plist, icon, localizations for the .app bundle
+Sources/Extensions/        Quick Look preview (Space) and thumbnail (Finder icons) extensions
+Packaging/                 Info.plists, entitlements, icon, localizations for the bundles
 scripts/                   build-app.sh, icon and test-fixture generators
 Tests/ThreeMFKitTests/     parser tests with small .3mf fixtures
 ```
@@ -81,7 +87,6 @@ For a signed and notarized build set `SIGN_IDENTITY="Developer ID Application: �
 
 ## Roadmap ideas
 
-- Quick Look extension (preview `.3mf` in Finder with the space bar)
 - Plate selector for multi-plate Bambu projects
 - Grid (gallery) view, tags and favourites
 

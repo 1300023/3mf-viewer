@@ -2,6 +2,7 @@ import AppKit
 import CryptoKit
 import ImageIO
 import ThreeMFKit
+import ThreeMFRendering
 
 /// Provides list thumbnails: the image embedded by the slicer if there is one, otherwise an
 /// off-screen SceneKit render. Results are cached in memory and on disk (~/Library/Caches).
