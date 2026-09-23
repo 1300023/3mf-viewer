@@ -1,0 +1,10 @@
+.DS_Store
+/.build
+/build
+/.swiftpm
+/Packages
+xcuserdata/
+DerivedData/
+*.xcodeproj
+Package.resolved
+/_to_delete

@@ -1,0 +1,78 @@
+/* Russian localization for 3MF Viewer. Keys are the English UI strings. */
+
+/* Welcome & placeholders */
+"Select a model" = "Выберите модель";
+"Choose a .3mf file in the list to preview it." = "Выберите файл .3mf в списке, чтобы посмотреть его.";
+"Choose a folder with .3mf models to browse them." = "Выберите папку с моделями .3mf, чтобы просмотреть их.";
+"Choose Folder…" = "Выбрать папку…";
+"…or drag a folder or a .3mf file into this window." = "…или перетащите папку или файл .3mf в это окно.";
+"No folder" = "Папка не выбрана";
+"Choose a folder with .3mf models." = "Выберите папку с моделями .3mf.";
+"No .3mf files" = "Нет файлов .3mf";
+"This folder doesn't contain any .3mf models." = "В этой папке нет моделей .3mf.";
+"No results" = "Ничего не найдено";
+
+/* Sidebar */
+"Search models" = "Поиск моделей";
+"Scanning…" = "Сканирование…";
+"Files: %lld" = "Файлов: %lld";
+"Refresh" = "Обновить";
+"Show in Finder" = "Показать в Finder";
+"Include Subfolders" = "Включая подпапки";
+"Sort By" = "Сортировка";
+"Folder options" = "Параметры папки";
+"Name" = "Имя";
+"Date Modified" = "Дата изменения";
+"Size" = "Размер";
+"Open in Default App" = "Открыть в приложении по умолчанию";
+"Copy Path" = "Скопировать путь";
+"Open With" = "Открыть в программе";
+"No applications found" = "Приложения не найдены";
+"Choose" = "Выбрать";
+"Choose a folder with .3mf models" = "Выберите папку с моделями .3mf";
+
+/* Detail view */
+"Loading model…" = "Загрузка модели…";
+"Couldn't open the file" = "Не удалось открыть файл";
+"This file has no 3D geometry — showing the embedded preview." = "В файле нет 3D-геометрии — показано встроенное превью.";
+"No geometry" = "Нет геометрии";
+"The file does not contain any printable meshes." = "Файл не содержит печатаемых моделей.";
+"Reset View" = "Сбросить вид";
+"Reset camera" = "Вернуть камеру в исходное положение";
+"Colors" = "Цвета";
+"Show filament and material colors" = "Показывать цвета филамента и материалов";
+"Wireframe" = "Каркас";
+"Build Plate" = "Стол";
+"Show build plate grid" = "Показывать сетку стола";
+"Info" = "Информация";
+"Show model information" = "Показывать информацию о модели";
+"Open" = "Открыть";
+"Open in the default app (click) or choose another app (hold)" = "Открыть в приложении по умолчанию (клик) или выбрать другое (удерживать)";
+
+/* Info panel */
+"mm" = "мм";
+"Objects" = "Объекты";
+"Triangles" = "Треугольники";
+"Filaments" = "Филаменты";
+"File size" = "Размер файла";
+"Modified" = "Изменён";
+"Title" = "Название";
+"Designer" = "Автор";
+"Application" = "Приложение";
+"CreationDate" = "Дата создания";
+"License" = "Лицензия";
+"Copyright" = "Авторские права";
+
+/* Menus */
+"Open Folder…" = "Открыть папку…";
+"Clear Thumbnail Cache" = "Очистить кэш превью";
+
+/* Errors */
+"The file is not a valid 3MF (ZIP) archive." = "Файл не является корректным архивом 3MF (ZIP).";
+"The archive is damaged: %@" = "Архив повреждён: %@";
+"Unsupported compression method %d in %@." = "Неподдерживаемый метод сжатия %1$d в %2$@.";
+"The entry %@ is encrypted." = "Элемент %@ зашифрован.";
+"Could not decompress %@." = "Не удалось распаковать %@.";
+"Malformed XML near byte %d." = "Ошибка в XML около байта %d.";
+"The file does not contain a 3D model part." = "Файл не содержит 3D-модели.";
+"Loading was cancelled." = "Загрузка отменена.";
