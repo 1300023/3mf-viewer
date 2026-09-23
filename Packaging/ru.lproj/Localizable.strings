@@ -45,6 +45,8 @@
 "Build Plate" = "Стол";
 "Show build plate grid" = "Показывать сетку стола";
 "Info" = "Информация";
+"Auto-Rotate" = "Автовращение";
+"Rotate the model like a turntable" = "Вращать модель, как на поворотном столе";
 "Show model information" = "Показывать информацию о модели";
 "Open" = "Открыть";
 "Open in the default app (click) or choose another app (hold)" = "Открыть в приложении по умолчанию (клик) или выбрать другое (удерживать)";

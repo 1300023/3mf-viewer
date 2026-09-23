@@ -11,6 +11,7 @@ struct ModelDetailView: View {
     @AppStorage("viewer.wireframe") private var wireframe = false
     @AppStorage("viewer.showPlate") private var showPlate = true
     @AppStorage("viewer.showInfo") private var showInfo = true
+    @AppStorage("viewer.autoRotate") private var autoRotate = false
     @State private var resetToken = 0
 
     var body: some View {
@@ -39,7 +40,8 @@ struct ModelDetailView: View {
                     SceneKitView(viewer: viewer,
                                  options: ViewerOptions(showColors: showColors,
                                                         wireframe: wireframe,
-                                                        showPlate: showPlate),
+                                                        showPlate: showPlate,
+                                                        autoRotate: autoRotate),
                                  resetToken: resetToken)
                         .ignoresSafeArea()
                 } else if let image = loaded.previewImage {
@@ -93,6 +95,11 @@ struct ModelDetailView: View {
                 Label("Build Plate", systemImage: "square.grid.3x3")
             }
             .help("Show build plate grid")
+
+            Toggle(isOn: $autoRotate) {
+                Label("Auto-Rotate", systemImage: "rotate.3d")
+            }
+            .help("Rotate the model like a turntable")
 
             Toggle(isOn: $showInfo) {
                 Label("Info", systemImage: "info.circle")

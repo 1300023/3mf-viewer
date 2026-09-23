@@ -37,6 +37,9 @@ struct SceneKitView: NSViewRepresentable {
             viewer.attach(to: view)
         }
         viewer.apply(options)
+        // Keep rendering while the turntable spins; otherwise draw only on changes.
+        view.rendersContinuously = options.autoRotate
+        view.isPlaying = options.autoRotate
         if coordinator.resetToken != resetToken {
             coordinator.resetToken = resetToken
             viewer.resetCamera(animated: true)

@@ -6,11 +6,14 @@ public struct ViewerOptions: Equatable, Sendable {
     public var showColors: Bool
     public var wireframe: Bool
     public var showPlate: Bool
+    /// Slowly spins the model (and its build plate) like a turntable.
+    public var autoRotate: Bool
 
-    public init(showColors: Bool = true, wireframe: Bool = false, showPlate: Bool = true) {
+    public init(showColors: Bool = true, wireframe: Bool = false, showPlate: Bool = true, autoRotate: Bool = false) {
         self.showColors = showColors
         self.wireframe = wireframe
         self.showPlate = showPlate
+        self.autoRotate = autoRotate
     }
 }
 
@@ -28,6 +31,7 @@ public final class ViewerScene: @unchecked Sendable {
     /// Model size in millimetres.
     public let size: SIMD3<Double>
 
+    private let turntableNode = SCNNode()
     private let worldNode = SCNNode()
     private let modelContainer = SCNNode()
     private var plateNode: SCNNode?
@@ -46,7 +50,8 @@ public final class ViewerScene: @unchecked Sendable {
 
         // Z-up (3MF) → Y-up (SceneKit): rotate -90° around X. (x, y, z) → (x, z, -y)
         worldNode.eulerAngles = SCNVector3(x: -CGFloat.pi / 2, y: 0, z: 0)
-        scene.rootNode.addChildNode(worldNode)
+        scene.rootNode.addChildNode(turntableNode)
+        turntableNode.addChildNode(worldNode)
 
         modelContainer.scale = SCNVector3(x: CGFloat(unitScale), y: CGFloat(unitScale), z: CGFloat(unitScale))
         modelContainer.position = SCNVector3(x: CGFloat(-(lo.x + hi.x) / 2),
@@ -98,6 +103,18 @@ public final class ViewerScene: @unchecked Sendable {
             }
         }
         plateNode?.isHidden = !options.showPlate
+        setAutoRotate(options.autoRotate)
+    }
+
+    private func setAutoRotate(_ enabled: Bool) {
+        let key = "turntable"
+        if enabled {
+            guard turntableNode.action(forKey: key) == nil else { return }
+            let spin = SCNAction.rotateBy(x: 0, y: CGFloat.pi * 2, z: 0, duration: 14)
+            turntableNode.runAction(.repeatForever(spin), forKey: key)
+        } else {
+            turntableNode.removeAction(forKey: key)
+        }
     }
 
     /// The same geometry without vertex colours, painted with the neutral default colour.

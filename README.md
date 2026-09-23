@@ -28,11 +28,15 @@
 
 Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Opening each one in a slicer just to see what is inside takes forever. 3MF Viewer shows the whole folder at a glance and opens even models with millions of triangles in a couple of seconds.
 
+<p align="center">
+  <img src="docs/screenshots/demo.gif" alt="3MF Viewer in action: switching between models with the turntable spinning" width="100%">
+</p>
+
 ## Features
 
 - **Folder library.** Choose a folder (or drag it onto the window / Dock icon). Every `.3mf` in it is listed, optionally including subfolders, with search and sorting by name, date or size. The list updates automatically when files are added or removed.
 - **Thumbnails.** Uses the preview image that Bambu Studio, OrcaSlicer, PrusaSlicer, Cura etc. embed in the file. If there is none, the model is rendered off-screen. Thumbnails are cached on disk.
-- **Interactive 3D preview** (SceneKit): orbit, zoom, pan, reset view (⌘0), wireframe, build-plate grid.
+- **Interactive 3D preview** (SceneKit): orbit, zoom, pan, reset view (⌘0), turntable auto-rotation, wireframe, build-plate grid.
 - **Colours from the slicer project**: filament colours from Bambu Studio / OrcaSlicer (`project_settings.config`) and PrusaSlicer (`Slic3r_PE.config`), per-object / per-part extruders, multi-material painting (`paint_color`, `mmu_segmentation`), and 3MF material colours (`basematerials`, `colorgroup`).
 - **Correct geometry**: components, the production extension (objects stored in `3D/Objects/*.model`), transforms, units; modifiers / negative volumes are hidden.
 - **Info panel**: dimensions in mm, object and triangle counts, filaments, title, designer, application.
