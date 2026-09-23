@@ -5,13 +5,28 @@
 <h1 align="center">3MF Viewer</h1>
 
 <p align="center">
-  Быстрый нативный просмотрщик моделей для 3D-печати в формате <code>.3mf</code> для macOS.<br>
-  Выберите папку и листайте модели с миниатюрами и интерактивным 3D-превью.
+  <b>Быстрый нативный просмотрщик моделей для 3D-печати в формате <code>.3mf</code> для macOS.</b><br>
+  Укажите папку и листайте свои модели: миниатюры, интерактивное 3D-превью,<br>
+  настоящие цвета филаментов из Bambu Studio, OrcaSlicer и PrusaSlicer, а также Quick Look прямо в Finder.
+</p>
+
+<p align="center">
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/1300023/3mf-viewer?label=%D1%81%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C&color=0E7480" alt="Последний релиз"></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B-1B2640?logo=apple&logoColor=white" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-universal-1B2640" alt="Универсальная сборка">
+  <img src="https://img.shields.io/badge/Swift-SwiftUI%20%2B%20SceneKit-F05138?logo=swift&logoColor=white" alt="Swift">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/1300023/3mf-viewer?color=6AB04C" alt="Лицензия MIT"></a>
 </p>
 
 <p align="center"><a href="README.md">English version</a></p>
 
----
+<p align="center">
+  <img src="docs/screenshots/hero.webp" alt="3MF Viewer: библиотека моделей с миниатюрами и интерактивное 3D-превью с цветами филаментов" width="100%">
+</p>
+
+## Зачем
+
+Проекты из слайсера быстро копятся, а в Finder все файлы `.3mf` выглядят одинаково. Открывать каждый в слайсере, только чтобы понять, что внутри, долго. 3MF Viewer показывает всю папку сразу и открывает даже модели из миллионов треугольников за пару секунд.
 
 ## Возможности
 
@@ -24,6 +39,49 @@
 - **Quick Look в Finder**: нажмите пробел на файле `.3mf`, и модель можно вращать в 3D прямо в окне Quick Look. Вместо иконок файлов Finder показывает превью моделей.
 - **«Открыть в программе»**: модель можно отправить в Bambu Studio, PrusaSlicer, OrcaSlicer или любое другое приложение. Есть «Показать в Finder» и «Скопировать путь».
 - Интерфейс на русском и английском. Сторонних зависимостей нет.
+
+## Скриншоты
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/filaments.webp" alt="Шестерни в трёх цветах филамента">
+      <p><b>Филаменты из проекта слайсера</b><br>
+      Каждый объект получает цвет филамента, назначенный в Bambu Studio или OrcaSlicer. Образцы цветов есть в информационной панели.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/color-groups.webp" alt="Рельеф, раскрашенный по высоте">
+      <p><b>Цвет каждого треугольника</b><br>
+      Отображаются группы цветов и материалы 3MF, мультиматериальная покраска и объекты из нескольких частей.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/multi-object.webp" alt="Шахматные фигуры двух цветов">
+      <p><b>Весь стол целиком</b><br>
+      Все объекты стоят так же, как в слайсере. Для масштаба показана сетка стола.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/quick-look.webp" alt="Превью Quick Look для файла .3mf">
+      <p><b>Quick Look</b><br>
+      Выделите файл в Finder и нажмите пробел: модель откроется в 3D без запуска приложения.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/high-poly.webp" alt="Волнистый абажур из 90 000 треугольников">
+      <p><b>Быстро даже на тяжёлых моделях</b><br>
+      Собственный побайтовый парсер 3MF загружает миллионы треугольников за секунды.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/smooth.webp" alt="Трилистный узел">
+      <p><b>Вся информация о модели</b><br>
+      Размеры в миллиметрах, число треугольников и объектов, автор, лицензия и программа, в которой создан файл.</p>
+    </td>
+  </tr>
+</table>
+
+<sub>Модели на скриншотах созданы скриптом <code>scripts/make_demo_models.py</code>.</sub>
 
 ## Требования
 
@@ -43,6 +101,15 @@ macOS 13 Ventura или новее, Apple Silicon или Intel.
 
 ```sh
 xattr -dr com.apple.quarantine "/Applications/3MF Viewer.app"
+```
+
+### Попробовать на демо-моделях
+
+Нет под рукой файлов `.3mf`? Сгенерируйте модели со скриншотов:
+
+```sh
+pip3 install numpy trimesh shapely
+python3 scripts/make_demo_models.py ~/Desktop/3MF-Demo
 ```
 
 ## Сборка из исходников
@@ -79,7 +146,8 @@ Sources/ThreeMFViewer/     приложение на SwiftUI
   Views/                     боковая панель, 3D-вид, информационная панель
 Sources/Extensions/        расширения Quick Look: превью (пробел) и миниатюры (иконки в Finder)
 Packaging/                 Info.plist, entitlements, иконка и локализации для бандлов
-scripts/                   build-app.sh, генераторы иконки и тестовых файлов
+scripts/                   build-app.sh, генераторы демо-моделей, скриншотов, иконки и тестовых файлов
+docs/screenshots/          картинки для README
 Tests/ThreeMFKitTests/     тесты парсера с маленькими .3mf-файлами
 ```
 
