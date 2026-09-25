@@ -6,13 +6,16 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            SidebarView()
+            CollectionsSidebar()
+                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 380)
+        } content: {
+            ModelListView()
+                .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 560)
         } detail: {
             detail
         }
         .dropDestination(for: URL.self) { urls, _ in
-            library.open(urls)
-            return !urls.isEmpty
+            library.importDropped(urls)
         } isTargeted: { targeted in
             isDropTargeted = targeted
         }
@@ -24,6 +27,15 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
+        .alert("Could not complete the operation", isPresented: errorBinding) {
+            Button("OK") { library.errorMessage = nil }
+        } message: {
+            Text(library.errorMessage ?? "")
+        }
+    }
+
+    private var errorBinding: Binding<Bool> {
+        Binding(get: { library.errorMessage != nil }, set: { if !$0 { library.errorMessage = nil } })
     }
 
     @ViewBuilder
@@ -31,7 +43,7 @@ struct ContentView: View {
         if let file = library.selectedFile {
             ModelDetailView(file: file)
                 .id(file.id)
-        } else if library.folderURL == nil {
+        } else if library.collections.isEmpty {
             WelcomeView()
         } else {
             PlaceholderView(systemImage: "cube",
@@ -51,12 +63,12 @@ struct WelcomeView: View {
                 .foregroundStyle(.secondary)
             Text("3MF Viewer")
                 .font(.largeTitle.weight(.semibold))
-            Text("Choose a folder with .3mf models to browse them.")
+            Text("Add a folder with .3mf models as a collection. Its subfolders become categories.")
                 .foregroundStyle(.secondary)
             Button {
-                library.chooseFolder()
+                library.addCollection()
             } label: {
-                Label("Choose Folder…", systemImage: "folder")
+                Label("Add Collection…", systemImage: "square.stack.3d.up")
                     .padding(.horizontal, 6)
             }
             .buttonStyle(.borderedProminent)

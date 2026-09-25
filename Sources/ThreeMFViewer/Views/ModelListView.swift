@@ -1,101 +1,147 @@
 import AppKit
 import SwiftUI
 
-struct SidebarView: View {
+/// Middle column: the models of the selected category (including its subcategories).
+struct ModelListView: View {
     @EnvironmentObject private var library: LibraryModel
+    @State private var isDropTargeted = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            if library.folderURL != nil {
-                FolderHeader()
-                Divider()
-            }
-            content
-        }
-        .searchable(text: $library.searchText, placement: .sidebar, prompt: Text("Search models"))
-        .navigationSplitViewColumnWidth(min: 250, ideal: 320, max: 560)
-    }
-
-    @ViewBuilder
-    private var content: some View {
         let files = library.visibleFiles
-        if library.folderURL == nil {
-            PlaceholderView(systemImage: "folder",
-                            title: "No folder",
-                            message: String(localized: "Choose a folder with .3mf models."))
-        } else if files.isEmpty {
-            if library.isScanning {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if library.searchText.isEmpty {
-                PlaceholderView(systemImage: "cube.transparent",
-                                title: "No .3mf files",
-                                message: String(localized: "This folder doesn't contain any .3mf models."))
+        VStack(spacing: 0) {
+            header(count: files.count)
+            Divider()
+            if files.isEmpty {
+                emptyState
             } else {
-                PlaceholderView(systemImage: "magnifyingglass", title: "No results")
-            }
-        } else {
-            List(selection: $library.selection) {
-                ForEach(files) { file in
-                    FileRowView(file: file)
-                        .contextMenu { FileContextMenu(url: file.url) }
+                List(selection: $library.selection) {
+                    ForEach(files) { file in
+                        FileRowView(file: file, showsFolder: showsFolder(of: file))
+                            .tag(file.id as String?)
+                            .draggable(file.url)
+                            .contextMenu { ModelContextMenu(file: file) }
+                    }
                 }
+                .listStyle(.inset)
             }
-            .listStyle(.sidebar)
+        }
+        .searchable(text: $library.searchText, prompt: Text("Search models"))
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let target = library.importTarget else { return false }
+            return library.receive(urls, into: target.url)
+        } isTargeted: { isDropTargeted = $0 }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .padding(3)
+                    .allowsHitTesting(false)
+            }
         }
     }
-}
 
-private struct FolderHeader: View {
-    @EnvironmentObject private var library: LibraryModel
-
-    var body: some View {
+    private func header(count: Int) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "folder.fill")
-                .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 1) {
-                Text(library.folderName)
+                Text(title)
                     .font(.headline)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Group {
-                    if library.isScanning {
-                        Text("Scanning…")
-                    } else {
-                        Text("Files: \(library.files.count)")
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text("Models: \(count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .help(library.folderURL?.path ?? "")
             Spacer(minLength: 4)
             Menu {
-                Button("Choose Folder…") { library.chooseFolder() }
-                Button("Refresh") { library.refresh() }
-                Button("Show in Finder") { library.revealInFinder() }
-                Divider()
-                Toggle("Include Subfolders", isOn: $library.includeSubfolders)
                 Picker("Sort By", selection: $library.sortOrder) {
                     ForEach(FileSortOrder.allCases) { order in
                         Text(order.title).tag(order)
                     }
                 }
+                .pickerStyle(.inline)
+                if let category = library.selectedCategory {
+                    Divider()
+                    Button("Show in Finder") { library.revealInFinder(category.url) }
+                }
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: "arrow.up.arrow.down")
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help("Folder options")
+            .help("Sort By")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    private var title: String {
+        library.selectedCategory?.name ?? String(localized: "All Models")
+    }
+
+    /// The row shows the category path when models from several folders are listed.
+    private func showsFolder(of file: ModelFileItem) -> Bool {
+        guard let category = library.selectedCategory else { return true }
+        return file.folderPath != category.id
+    }
+
+    @ViewBuilder
+    private var emptyState: some View {
+        if !library.didScanOnce || library.isScanning && library.files.isEmpty {
+            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if !library.searchText.isEmpty {
+            PlaceholderView(systemImage: "magnifyingglass", title: "No results")
+        } else {
+            PlaceholderView(systemImage: "tray",
+                            title: "This category is empty",
+                            message: String(localized: "Drag .3mf files here from Finder or from another category."))
+        }
+    }
+}
+
+/// Context menu of a model: open / move / trash.
+struct ModelContextMenu: View {
+    @EnvironmentObject private var library: LibraryModel
+    let file: ModelFileItem
+
+    var body: some View {
+        FileContextMenu(url: file.url)
+        Divider()
+        Menu("Move to") {
+            MoveTargetsMenu(nodes: library.tree.filter(\.isAvailable), currentFolder: file.folderPath) { node in
+                library.move(file, to: node)
+            }
+        }
+        Button("Move to Trash") { library.trash(file) }
+    }
+}
+
+/// Nested menu that mirrors the category tree.
+struct MoveTargetsMenu: View {
+    let nodes: [CategoryNode]
+    let currentFolder: String
+    let action: (CategoryNode) -> Void
+
+    var body: some View {
+        ForEach(nodes) { node in
+            if node.children.isEmpty {
+                Button(node.name) { action(node) }
+                    .disabled(node.id == currentFolder)
+            } else {
+                Menu(node.name) {
+                    Button(node.name) { action(node) }
+                        .disabled(node.id == currentFolder)
+                    Divider()
+                    MoveTargetsMenu(nodes: node.children, currentFolder: currentFolder, action: action)
+                }
+            }
+        }
     }
 }
 
 struct FileRowView: View {
     let file: ModelFileItem
+    var showsFolder = true
     @State private var thumbnail: NSImage?
     @State private var didLoad = false
 
@@ -129,7 +175,7 @@ struct FileRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                if !file.relativeFolder.isEmpty {
+                if showsFolder, !file.relativeFolder.isEmpty {
                     Label(file.relativeFolder, systemImage: "folder")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
@@ -154,7 +200,7 @@ struct FileRowView: View {
 
     private var details: String {
         let size = ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file)
-        let date = file.modified.formatted(date: .abbreviated, time: .omitted)
+        let date = file.modified.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: AppLanguage.locale))
         return "\(size) · \(date)"
     }
 }

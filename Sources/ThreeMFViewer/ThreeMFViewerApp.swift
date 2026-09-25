@@ -1,23 +1,43 @@
 import AppKit
 import SwiftUI
 
+/// Entry point: the interface language has to be set before SwiftUI loads any localized string.
 @main
+enum Launcher {
+    @MainActor
+    static func main() {
+        AppLanguage.applyAtLaunch()
+        ThreeMFViewerApp.main()
+    }
+}
+
 struct ThreeMFViewerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryModel()
+    @AppStorage(AppLanguage.defaultsKey) private var language = AppLanguage.english.rawValue
 
     var body: some Scene {
         Window("3MF Viewer", id: "main") {
             ContentView()
                 .environmentObject(library)
-                .frame(minWidth: 820, minHeight: 520)
+                .frame(minWidth: 980, minHeight: 560)
+                .environment(\.locale, AppLanguage.locale)
                 .onAppear { appDelegate.attach(library) }
         }
-        .defaultSize(width: 1240, height: 800)
+        .defaultSize(width: 1400, height: 840)
         .commands {
+            CommandGroup(after: .appSettings) {
+                Picker("Language", selection: languageBinding) {
+                    ForEach(AppLanguage.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+            }
             CommandGroup(replacing: .newItem) {
-                Button("Open Folder…") { library.chooseFolder() }
+                Button("Add Collection…") { library.addCollection() }
                     .keyboardShortcut("o", modifiers: .command)
+                Button("New Category…") { library.requestNewCategory() }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("Refresh") { library.refresh() }
                     .keyboardShortcut("r", modifiers: .command)
             }
@@ -29,6 +49,21 @@ struct ThreeMFViewerApp: App {
                 }
             }
         }
+
+        Settings {
+            SettingsView()
+                .environment(\.locale, AppLanguage.locale)
+        }
+    }
+
+    private var languageBinding: Binding<AppLanguage> {
+        Binding(
+            get: { AppLanguage(rawValue: language) ?? .english },
+            set: { newValue in
+                // Deferred so the menu closes before the restart prompt appears.
+                DispatchQueue.main.async { AppLanguage.choose(newValue) }
+            }
+        )
     }
 }
 

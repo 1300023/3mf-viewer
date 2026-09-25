@@ -1,1 +1,3 @@
-/* English is the development language: the keys themselves are the English strings. */
+/* English is the development language: the keys themselves are the English strings.
+   Only keys that are not readable English (3MF metadata names) are listed here. */
+"CreationDate" = "Created";

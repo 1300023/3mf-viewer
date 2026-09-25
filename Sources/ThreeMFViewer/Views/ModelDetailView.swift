@@ -154,7 +154,7 @@ struct InfoPanel: View {
                 }
             }
             row("File size", ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-            row("Modified", file.modified.formatted(date: .abbreviated, time: .shortened))
+            row("Modified", file.modified.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, locale: AppLanguage.locale)))
 
             if let model {
                 let entries = Self.metadataKeys.compactMap { key in

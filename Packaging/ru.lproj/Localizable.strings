@@ -65,6 +65,39 @@
 "License" = "Лицензия";
 "Copyright" = "Авторские права";
 
+/* Collections & categories */
+"Collections" = "Коллекции";
+"All Models" = "Все модели";
+"Add Collection…" = "Добавить коллекцию…";
+"New Category…" = "Новая категория…";
+"New Subcategory…" = "Новая подкатегория…";
+"Rename…" = "Переименовать…";
+"Remove Collection from List" = "Убрать коллекцию из списка";
+"Move to Trash" = "Переместить в корзину";
+"Move to Trash…" = "Переместить в корзину…";
+"Move to" = "Переместить в";
+"Category name" = "Название категории";
+"The folder will be created in “%@”." = "Папка будет создана в «%@».";
+"Create" = "Создать";
+"Rename" = "Переименовать";
+"Cancel" = "Отмена";
+"OK" = "OK";
+"Add" = "Добавить";
+"New Category" = "Новая категория";
+"Rename Category" = "Переименовать категорию";
+"Move “%@” to the Trash?" = "Переместить «%@» в корзину?";
+"The folder and all models inside it will be moved to the Trash." = "Папка и все модели в ней будут перемещены в корзину.";
+"No collections" = "Нет коллекций";
+"Add a folder with .3mf models as a collection. Its subfolders become categories." = "Добавьте папку с моделями .3mf как коллекцию. Её подпапки станут категориями.";
+"Choose a folder for the collection" = "Выберите папку для коллекции";
+"A category named “%@” already exists." = "Категория «%@» уже существует.";
+"Could not complete the operation" = "Не удалось выполнить операцию";
+"Models: %lld" = "Моделей: %lld";
+"Folder not found" = "Папка не найдена";
+"This category is empty" = "В этой категории нет моделей";
+"Drag .3mf files here from Finder or from another category." = "Перетащите сюда файлы .3mf из Finder или из другой категории.";
+"Add a collection or a category" = "Добавить коллекцию или категорию";
+
 /* Quick Look */
 "Triangles: %@" = "Треугольников: %@";
 
@@ -81,3 +114,10 @@
 "Malformed XML near byte %d." = "Ошибка в XML около байта %d.";
 "The file does not contain a 3D model part." = "Файл не содержит 3D-модели.";
 "Loading was cancelled." = "Загрузка отменена.";
+
+/* Language */
+"Language" = "Язык";
+"System Language" = "Как в системе";
+"The language will change after 3MF Viewer restarts." = "Язык сменится после перезапуска 3MF Viewer.";
+"Restart Now" = "Перезапустить";
+"Later" = "Позже";

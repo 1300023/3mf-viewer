@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>A fast, native macOS browser for 3D-printing models in <code>.3mf</code> format.</b><br>
-  Point it at a folder and flip through your prints: thumbnails, an interactive 3D preview,<br>
+  Organise your prints into collections and categories and flip through them: thumbnails, an interactive 3D preview,<br>
   real filament colours from Bambu Studio, OrcaSlicer and PrusaSlicer — and Quick Look right in Finder.
 </p>
 
@@ -26,7 +26,7 @@
 
 ## Why
 
-Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Opening each one in a slicer just to see what is inside takes forever. 3MF Viewer shows the whole folder at a glance and opens even models with millions of triangles in a couple of seconds.
+Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Opening each one in a slicer just to see what is inside takes forever. 3MF Viewer shows your whole library at a glance, keeps it sorted into categories that are plain folders on disk, and opens even models with millions of triangles in a couple of seconds.
 
 <p align="center">
   <img src="docs/screenshots/demo.gif" alt="3MF Viewer in action: switching between models with the turntable spinning" width="100%">
@@ -34,7 +34,8 @@ Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Open
 
 ## Features
 
-- **Folder library.** Choose a folder (or drag it onto the window / Dock icon). Every `.3mf` in it is listed, optionally including subfolders, with search and sorting by name, date or size. The list updates automatically when files are added or removed.
+- **Collections with categories.** Add one or more folders as collections. Their subfolders are categories and subcategories of any depth, shown as a tree with model counts. Create, rename and delete categories, drag models between them or use **Move to**. Every change happens in the folders themselves, so the collection on disk always has the same structure as in the app, and changes made in Finder show up in the app right away.
+- **Library view.** "All Models" or any category (with its subcategories), search, sorting by name, date or size. Drop `.3mf` files from Finder onto a category to copy them into its folder.
 - **Thumbnails.** Uses the preview image that Bambu Studio, OrcaSlicer, PrusaSlicer, Cura etc. embed in the file. If there is none, the model is rendered off-screen. Thumbnails are cached on disk.
 - **Interactive 3D preview** (SceneKit): orbit, zoom, pan, reset view (⌘0), turntable auto-rotation, wireframe, build-plate grid.
 - **Colours from the slicer project**: filament colours from Bambu Studio / OrcaSlicer (`project_settings.config`) and PrusaSlicer (`Slic3r_PE.config`), per-object / per-part extruders, multi-material painting (`paint_color`, `mmu_segmentation`), and 3MF material colours (`basematerials`, `colorgroup`).
@@ -42,7 +43,7 @@ Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Open
 - **Info panel**: dimensions in mm, object and triangle counts, filaments, title, designer, application.
 - **Quick Look in Finder**: press Space on a `.3mf` to rotate the model in 3D right in the Quick Look window, and see model previews as file icons.
 - **Open With…** — send the model to Bambu Studio, PrusaSlicer, OrcaSlicer or any other app; Show in Finder, Copy Path.
-- English and Russian UI. No third-party dependencies.
+- **English and Russian interface.** English by default; switch in Settings (⌘,) or in the app menu → Language. No third-party dependencies.
 
 ## Screenshots
 
@@ -141,9 +142,9 @@ Sources/ThreeMFKit/        3MF parsing, no UI and no dependencies
   ThreeMFReader.swift        public API: load(url:), thumbnailData(url:)
 Sources/ThreeMFRendering/  SceneKit scene + off-screen renderer (shared)
 Sources/ThreeMFViewer/     the SwiftUI app
-  Library/                   folder scanning, thumbnail cache
+  Library/                   collections, category tree (folders), watcher, thumbnail cache
   Rendering/                 SwiftUI wrapper around SCNView
-  Views/                     sidebar, 3D view, info panel
+  Views/                     collections sidebar, model list, 3D view, info panel
 Sources/Extensions/        Quick Look preview (Space) and thumbnail (Finder icons) extensions
 Packaging/                 Info.plists, entitlements, icon, localizations for the bundles
 scripts/                   build-app.sh, demo-model / screenshot / icon / test-fixture generators

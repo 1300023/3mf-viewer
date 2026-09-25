@@ -19,16 +19,18 @@ BID=io.github.threemfviewer
 
 swiftc -O -o "$OUT/winid" "$ROOT/scripts/winid.swift" || exit 1
 
-OLD_FOLDER="$(defaults read $BID library.folderPath 2>/dev/null || true)"
-OLD_SUB="$(defaults read $BID library.includeSubfolders 2>/dev/null || true)"
+# Back up the app's settings; they are restored at the end.
+PREFS_BACKUP="$OUT/prefs-backup.plist"
+defaults export $BID "$PREFS_BACKUP" 2>/dev/null || true
 
 pkill -x ThreeMFViewer; sleep 1
 defaults read $BID 2>/dev/null | grep -o '"NSWindow Frame[^"]*"' | tr -d '"' | while IFS= read -r key; do
   defaults delete $BID "$key"
 done
 rm -rf "$HOME/Library/Saved Application State/$BID.savedState"
-defaults write $BID library.folderPath "$DEMO"
-defaults write $BID library.includeSubfolders -bool false
+defaults write $BID library.collections -array "$DEMO"
+defaults write $BID library.selectedCategory "$DEMO"
+defaults write $BID library.expandedCategories -array "$DEMO"
 defaults write $BID library.sortOrder name
 for key in viewer.showInfo viewer.showColors viewer.showPlate; do defaults write $BID "$key" -bool true; done
 defaults write $BID viewer.wireframe -bool false
@@ -58,6 +60,5 @@ W="$("$OUT/winid" qlmanage)"
 pkill -x qlmanage
 
 # Restore settings.
-if [ -n "$OLD_FOLDER" ]; then defaults write $BID library.folderPath "$OLD_FOLDER"; else defaults delete $BID library.folderPath; fi
-if [ -n "$OLD_SUB" ]; then defaults write $BID library.includeSubfolders -bool "$OLD_SUB"; else defaults delete $BID library.includeSubfolders; fi
+if [ -f "$PREFS_BACKUP" ]; then defaults import $BID "$PREFS_BACKUP"; fi
 echo "Done: $OUT"
