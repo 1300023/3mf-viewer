@@ -12,7 +12,7 @@ struct CollectionsSidebar: View {
             if library.collections.isEmpty {
                 PlaceholderView(systemImage: "square.stack.3d.up",
                                 title: "No collections",
-                                message: String(localized: "Add a folder with .3mf models as a collection. Its subfolders become categories."))
+                                message: String(localized: "Add a folder with 3D models (.3mf, .stl, .obj) as a collection. Its subfolders become categories."))
             } else {
                 List(selection: $library.selectedCategoryID) {
                     allModelsRow

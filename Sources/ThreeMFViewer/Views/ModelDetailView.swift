@@ -200,6 +200,9 @@ struct InfoPanel: View {
             if !project.isEmpty {
                 PrintInfoSection(project: project, plate: plate)
             }
+            if let format = file.format {
+                row("Format", format.displayName)
+            }
             row("File size", ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
             row("Modified", file.modified.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, locale: AppLanguage.locale)))
 

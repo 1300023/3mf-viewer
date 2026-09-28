@@ -348,8 +348,44 @@ def make_bambu_plates():
     })
 
 
+def write_raw(name, data):
+    os.makedirs(OUT, exist_ok=True)
+    path = os.path.join(OUT, name)
+    with open(path, "wb") as f:
+        f.write(data if isinstance(data, bytes) else data.encode())
+    print("written", path)
+
+
+def make_mesh_files():
+    """cube.stl (binary, 20 mm), cube_ascii.stl (ASCII, 10 mm) and two_cubes.obj with a material library."""
+    verts, tris = cube(20.0, (5, 5, 0))
+    body = b"".join(struct.pack("<12fH", 0, 0, 0, *verts[a], *verts[b], *verts[c], 0) for a, b, c in tris)
+    write_raw("cube.stl", b"solid but actually binary".ljust(80, b" ") + struct.pack("<I", len(tris)) + body)
+
+    verts, tris = cube(10.0)
+    facets = "\n".join(
+        "facet normal 0 0 0\n outer loop\n" + "".join(f"  vertex {x:g} {y:g} {z:g}\n" for x, y, z in (verts[a], verts[b], verts[c]))
+        + " endloop\nendfacet" for a, b, c in tris)
+    write_raw("cube_ascii.stl", f"solid cube\n{facets}\nendsolid cube\n")
+
+    # Two 10 mm cubes: the first with quad faces and 1-based indices, the second with negative indices.
+    a_v, _ = cube(10.0)
+    quads = [(1, 3, 4, 2), (5, 6, 8, 7), (1, 2, 6, 5), (3, 7, 8, 4), (1, 5, 7, 3), (2, 4, 8, 6)]
+    lines = ["# test", "mtllib two cubes.mtl", "o First"]
+    lines += [f"v {x:g} {y:g} {z:g}" for x, y, z in a_v]
+    lines += ["vn 0 0 1", "vt 0 0", "usemtl Red"]
+    lines += ["f " + " ".join(f"{i}/1/1" for i in q) for q in quads]
+    lines += ["o Second"]
+    lines += [f"v {x + 20:g} {y:g} {z:g} 1 0 0" for x, y, z in a_v]
+    lines += ["usemtl Green"]
+    lines += ["f " + " ".join(str(i - 9) for i in q) for q in quads]
+    write_raw("two_cubes.obj", "\n".join(lines) + "\n")
+    write_raw("two cubes.mtl", "newmtl Red\nKd 1 0 0\n\nnewmtl Green\nKd 0 1 0\nd 0.5\n")
+
+
 if __name__ == "__main__":
     make_cube()
     make_bambu()
     make_prusa()
     make_bambu_plates()
+    make_mesh_files()

@@ -5,7 +5,7 @@
 <h1 align="center">3MF Viewer</h1>
 
 <p align="center">
-  <b>A fast, native macOS browser for 3D-printing models in <code>.3mf</code> format.</b><br>
+  <b>A fast, native macOS browser for 3D-printing models: <code>.3mf</code>, <code>.stl</code> and <code>.obj</code>.</b><br>
   Organise your prints into collections and categories and flip through them: thumbnails, an interactive 3D preview,<br>
   real filament colours from Bambu Studio, OrcaSlicer and PrusaSlicer — and Quick Look right in Finder.
 </p>
@@ -35,7 +35,8 @@ Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Open
 ## Features
 
 - **Collections with categories.** Add one or more folders as collections. Their subfolders are categories and subcategories of any depth, shown as a tree with model counts. Create, rename and delete categories, drag models between them or use **Move to**. Every change happens in the folders themselves, so the collection on disk always has the same structure as in the app, and changes made in Finder show up in the app right away.
-- **Library view.** "All Models" or any category (with its subcategories), search, sorting by name, date or size. Drop `.3mf` files from Finder onto a category to copy them into its folder.
+- **List or gallery.** "All Models" or any category (with its subcategories) as a list or as a gallery of large thumbnails with a size slider (arrow keys move the selection). Search, sorting by name, date, size or print time. Drop model files from Finder onto a category to copy them into its folder.
+- **STL and OBJ too.** STL (binary and ASCII) and OBJ files live in the same collections, with rendered thumbnails and the 3D preview; OBJ material colours (`.mtl`) are shown, and an OBJ's own `.mtl` moves with it between categories.
 - **Thumbnails.** Uses the preview image that Bambu Studio, OrcaSlicer, PrusaSlicer, Cura etc. embed in the file. If there is none, the model is rendered off-screen. Thumbnails are cached on disk.
 - **Interactive 3D preview** (SceneKit): orbit, zoom, pan, reset view (⌘0), turntable auto-rotation, wireframe, build-plate grid.
 - **Colours from the slicer project**: filament colours from Bambu Studio / OrcaSlicer (`project_settings.config`) and PrusaSlicer (`Slic3r_PE.config`), per-object / per-part extruders, multi-material painting (`paint_color`, `mmu_segmentation`), and 3MF material colours (`basematerials`, `colorgroup`).
@@ -142,6 +143,7 @@ Sources/ThreeMFKit/        3MF parsing, no UI and no dependencies
   PrintProject.swift         plates, slicing results (print time, filament), printer
   PaintDecoder.swift         multi-material painting decoder
   ThreeMFReader.swift        public API: load(url:), thumbnailData(url:)
+  MeshFileReaders.swift      STL (binary / ASCII) and OBJ + MTL
 Sources/ThreeMFRendering/  SceneKit scene + off-screen renderer (shared)
 Sources/ThreeMFViewer/     the SwiftUI app
   Library/                   collections, category tree (folders), watcher, thumbnail cache
@@ -162,8 +164,8 @@ For a signed and notarized build set `SIGN_IDENTITY="Developer ID Application: �
 
 ## Roadmap ideas
 
-- STL and OBJ files in the library
-- Grid (gallery) view, tags and favourites
+- Tags and favourites
+- STEP files
 
 ## License
 

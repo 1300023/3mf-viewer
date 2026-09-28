@@ -9,7 +9,10 @@ import ThreeMFRendering
 final class ThumbnailStore: @unchecked Sendable {
     static let shared = ThumbnailStore()
 
-    static let pixelSize: CGFloat = 256
+    /// Big enough for the largest gallery tiles on a Retina screen.
+    static let pixelSize: CGFloat = 440
+    /// Part of the disk cache key: bump when the thumbnail size or style changes.
+    private static let cacheVersion = "v2-440"
     /// Files larger than this are not rendered just for a thumbnail.
     static let maxRenderFileSize: Int64 = 150 * 1024 * 1024
 
@@ -39,7 +42,7 @@ final class ThumbnailStore: @unchecked Sendable {
         diskDirectory = caches?
             .appendingPathComponent(Bundle.main.bundleIdentifier ?? "ThreeMFViewer", isDirectory: true)
             .appendingPathComponent("Thumbnails", isDirectory: true)
-        memory.countLimit = 800
+        memory.totalCostLimit = 256 * 1024 * 1024
         if let diskDirectory {
             try? FileManager.default.createDirectory(at: diskDirectory, withIntermediateDirectories: true)
         }
@@ -55,14 +58,16 @@ final class ThumbnailStore: @unchecked Sendable {
         if hasFailed(key) { return nil }
 
         let url = file.url
-        let diskFile = diskDirectory?.appendingPathComponent(Self.hash(key) + ".png")
+        let diskFile = diskDirectory?.appendingPathComponent(Self.hash(Self.cacheVersion + "|" + key) + ".png")
+        let hasEmbeddedPreview = file.format == .threeMF
 
         // 1. Disk cache or the preview embedded in the 3MF.
         var image: NSImage? = await perform(on: extractQueue) {
             if let diskFile, let data = try? Data(contentsOf: diskFile), let cached = NSImage(data: data) {
                 return cached
             }
-            guard let data = try? ThreeMFReader.thumbnailData(url: url),
+            guard hasEmbeddedPreview,
+                  let data = try? ThreeMFReader.thumbnailData(url: url),
                   let embedded = Self.downscaled(data) else { return nil }
             Self.write(embedded, to: diskFile)
             return embedded
@@ -71,7 +76,7 @@ final class ThumbnailStore: @unchecked Sendable {
         // 2. Render the model ourselves.
         if image == nil, !Task.isCancelled, file.size <= Self.maxRenderFileSize {
             image = await perform(on: renderQueue) {
-                guard let model = try? ThreeMFReader.load(url: url),
+                guard let model = try? ModelReader.load(url: url),
                       let rendered = ThumbnailRenderer.render(model: model, pixelSize: Self.pixelSize) else { return nil }
                 Self.write(rendered, to: diskFile)
                 return rendered
@@ -79,7 +84,7 @@ final class ThumbnailStore: @unchecked Sendable {
         }
 
         if let image {
-            memory.setObject(image, forKey: key as NSString)
+            memory.setObject(image, forKey: key as NSString, cost: Self.cost(of: image))
         } else if !Task.isCancelled {
             markFailed(key)
         }
@@ -126,6 +131,11 @@ final class ThumbnailStore: @unchecked Sendable {
         } onCancel: {
             operation.cancel()
         }
+    }
+
+    private static func cost(of image: NSImage) -> Int {
+        guard let rep = image.representations.first else { return 1 }
+        return max(1, rep.pixelsWide * rep.pixelsHigh * 4)
     }
 
     static func downscaled(_ data: Data) -> NSImage? {

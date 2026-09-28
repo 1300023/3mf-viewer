@@ -2,8 +2,8 @@ import XCTest
 @testable import ThreeMFKit
 
 final class ThreeMFKitTests: XCTestCase {
-    private func fixture(_ name: String) throws -> URL {
-        try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "3mf", subdirectory: "Fixtures"))
+    private func fixture(_ name: String, _ ext: String = "3mf") throws -> URL {
+        try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: ext, subdirectory: "Fixtures"))
     }
 
     private func color(_ hex: String) -> RGBAColor { RGBAColor(hex: hex)! }
@@ -142,6 +142,41 @@ final class ThreeMFKitTests: XCTestCase {
 
         let size = try XCTUnwrap(model.sizeInMillimeters)
         XCTAssertEqual(size.x, 10, accuracy: 1e-6)
+    }
+
+    // MARK: - STL / OBJ
+
+    func testSTLBinaryAndASCII() throws {
+        // Binary, although the header starts with "solid".
+        let binary = try ModelReader.load(url: fixture("cube", "stl"))
+        XCTAssertEqual(binary.triangleCount, 12)
+        XCTAssertEqual(binary.objectCount, 1)
+        XCTAssertEqual(try XCTUnwrap(binary.bounds).min.x, 5, accuracy: 1e-6)
+        XCTAssertEqual(try XCTUnwrap(binary.sizeInMillimeters).x, 20, accuracy: 1e-6)
+        XCTAssertEqual(binary.instances.first?.objectName, "cube")
+
+        let ascii = try ModelReader.load(url: fixture("cube_ascii", "stl"))
+        XCTAssertEqual(ascii.triangleCount, 12)
+        XCTAssertEqual(try XCTUnwrap(ascii.sizeInMillimeters).z, 10, accuracy: 1e-6)
+
+        XCTAssertThrowsError(try STLReader.parse(Data("hello".utf8), key: "x"))
+    }
+
+    func testOBJWithMaterials() throws {
+        let model = try ModelReader.load(url: fixture("two_cubes", "obj"))
+        XCTAssertEqual(model.triangleCount, 24)  // 2 × 6 quads
+        XCTAssertEqual(model.objectCount, 2)
+        XCTAssertEqual(try XCTUnwrap(model.sizeInMillimeters).x, 30, accuracy: 1e-6)
+
+        let instance = try XCTUnwrap(model.instances.first)
+        let colors = model.resolvedColors(for: instance)
+        XCTAssertEqual(colors[instance.mesh.paletteIndex(ofTriangle: 0)], color("#FF0000"))
+        let green = try XCTUnwrap(colors[instance.mesh.paletteIndex(ofTriangle: 12)])
+        XCTAssertEqual(green.g, 1)
+        XCTAssertEqual(green.a, 0.5, accuracy: 1e-6)
+
+        XCTAssertEqual(ModelFileFormat(url: URL(fileURLWithPath: "/a/B.STL")), .stl)
+        XCTAssertNil(ModelFileFormat(url: URL(fileURLWithPath: "/a/b.gcode")))
     }
 
     // MARK: - Building blocks

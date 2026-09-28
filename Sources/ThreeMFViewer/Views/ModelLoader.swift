@@ -47,10 +47,11 @@ final class ModelLoader: ObservableObject {
 
         let url = file.url
         let work = Task.detached(priority: .userInitiated) { () throws -> (LoadedModel, PlateContent, Int?) in
+            let isThreeMF = ModelFileFormat(url: url) == .threeMF
             var model: ThreeMFModel?
             var project: PrintProject
             do {
-                let loaded = try ThreeMFReader.load(url: url)
+                let loaded = try ModelReader.load(url: url)
                 model = loaded
                 project = loaded.project
             } catch ThreeMFError.missingModel {
@@ -58,7 +59,9 @@ final class ModelLoader: ObservableObject {
                 project = (try? ThreeMFReader.printProject(url: url)) ?? PrintProject()
             }
             try Task.checkCancellation()
-            let preview = (try? ThreeMFReader.thumbnailData(url: url)).flatMap { NSImage(data: $0) }
+            let preview = isThreeMF
+                ? (try? ThreeMFReader.thumbnailData(url: url)).flatMap { NSImage(data: $0) }
+                : nil
             let loaded = LoadedModel(model: model, project: project, previewImage: preview)
             // Multi-plate projects open on their first plate: all plates side by side are tiny.
             if let model, model.triangleCount > 0, project.plates.count > 1, let first = project.plates.first {

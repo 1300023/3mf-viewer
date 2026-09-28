@@ -6,6 +6,8 @@ import ThreeMFKit
 struct ModelListView: View {
     @EnvironmentObject private var library: LibraryModel
     @State private var isDropTargeted = false
+    @AppStorage("library.viewMode") private var viewMode = LibraryViewMode.list
+    @AppStorage("library.tileSize") private var tileSize = 150.0
 
     var body: some View {
         let files = library.visibleFiles
@@ -14,6 +16,9 @@ struct ModelListView: View {
             Divider()
             if files.isEmpty {
                 emptyState
+            } else if viewMode == .grid {
+                ModelGridView(files: files, tileSize: tileSize, showsFolder: showsFolder(of:))
+                    .safeAreaInset(edge: .bottom) { tileSizeBar }
             } else {
                 List(selection: $library.selection) {
                     ForEach(files) { file in
@@ -55,6 +60,14 @@ struct ModelListView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
+            Picker("View", selection: $viewMode) {
+                Image(systemName: "list.bullet").help("List").tag(LibraryViewMode.list)
+                Image(systemName: "square.grid.2x2").help("Gallery").tag(LibraryViewMode.grid)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .help("List or gallery")
             Menu {
                 Picker("Sort By", selection: $library.sortOrder) {
                     ForEach(FileSortOrder.allCases) { order in
@@ -78,6 +91,25 @@ struct ModelListView: View {
         .padding(.vertical, 8)
     }
 
+    /// Thumbnail size slider under the gallery.
+    private var tileSizeBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "square.grid.3x3")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Slider(value: $tileSize, in: 90 ... 260)
+                .controlSize(.small)
+                .frame(maxWidth: 180)
+                .help("Thumbnail size")
+            Image(systemName: "square.grid.2x2")
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
+    }
+
     private var title: String {
         library.selectedCategory?.name ?? String(localized: "All Models")
     }
@@ -97,7 +129,7 @@ struct ModelListView: View {
         } else {
             PlaceholderView(systemImage: "tray",
                             title: "This category is empty",
-                            message: String(localized: "Drag .3mf files here from Finder or from another category."))
+                            message: String(localized: "Drag model files here from Finder or from another category."))
         }
     }
 }
@@ -147,30 +179,10 @@ struct FileRowView: View {
     var showsFolder = true
     /// Estimated print time of a sliced project.
     var printTime: TimeInterval?
-    @State private var thumbnail: NSImage?
-    @State private var didLoad = false
-
     var body: some View {
         HStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.secondary.opacity(0.12))
-                if let thumbnail {
-                    Image(nsImage: thumbnail)
-                        .resizable()
-                        .interpolation(.high)
-                        .scaledToFit()
-                        .padding(3)
-                } else if didLoad {
-                    Image(systemName: "cube")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-            }
-            .frame(width: 58, height: 58)
+            ModelThumbnail(file: file, cornerRadius: 8)
+                .frame(width: 58, height: 58)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.displayName)
@@ -198,17 +210,6 @@ struct FileRowView: View {
             }
         }
         .padding(.vertical, 3)
-        .task(id: file.cacheKey) {
-            if let cached = ThumbnailStore.shared.cachedImage(for: file) {
-                thumbnail = cached
-                didLoad = true
-                return
-            }
-            let image = await ThumbnailStore.shared.thumbnail(for: file)
-            guard !Task.isCancelled else { return }
-            thumbnail = image
-            didLoad = true
-        }
     }
 
     private var details: String {
@@ -219,7 +220,7 @@ struct FileRowView: View {
 }
 
 /// Icon and title close together (the default label style spaces them widely).
-private struct CompactLabelStyle: LabelStyle {
+struct CompactLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 2) {
             configuration.icon

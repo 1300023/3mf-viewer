@@ -10,7 +10,7 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 380)
         } content: {
             ModelListView()
-                .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 560)
+                .navigationSplitViewColumnWidth(min: 260, ideal: 340, max: 1000)
         } detail: {
             detail
         }
@@ -48,7 +48,7 @@ struct ContentView: View {
         } else {
             PlaceholderView(systemImage: "cube",
                             title: "Select a model",
-                            message: String(localized: "Choose a .3mf file in the list to preview it."))
+                            message: String(localized: "Choose a model in the list to preview it."))
         }
     }
 }
@@ -63,7 +63,7 @@ struct WelcomeView: View {
                 .foregroundStyle(.secondary)
             Text("3MF Viewer")
                 .font(.largeTitle.weight(.semibold))
-            Text("Add a folder with .3mf models as a collection. Its subfolders become categories.")
+            Text("Add a folder with 3D models (.3mf, .stl, .obj) as a collection. Its subfolders become categories.")
                 .foregroundStyle(.secondary)
             Button {
                 library.addCollection()
@@ -74,7 +74,7 @@ struct WelcomeView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
-            Text("…or drag a folder or a .3mf file into this window.")
+            Text("…or drag a folder or model files into this window.")
                 .font(.callout)
                 .foregroundStyle(.tertiary)
         }

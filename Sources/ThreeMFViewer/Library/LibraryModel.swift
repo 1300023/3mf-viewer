@@ -17,8 +17,10 @@ struct ModelFileItem: Identifiable, Hashable, Sendable {
 
     var displayName: String {
         let name = url.lastPathComponent
-        return name.lowercased().hasSuffix(".3mf") ? String(name.dropLast(4)) : name
+        return format != nil ? (name as NSString).deletingPathExtension : name
     }
+
+    var format: ModelFileFormat? { ModelFileFormat(url: url) }
 
     /// Changes whenever the file changes — used for thumbnail caching.
     var cacheKey: String { "\(url.path)|\(size)|\(Int(modified.timeIntervalSince1970))" }
@@ -337,7 +339,7 @@ final class LibraryModel: ObservableObject {
         let folder = folder.standardizedFileURL
         let items = urls.map(\.standardizedFileURL).filter { url in
             if isDirectory(url) { return true }
-            return url.pathExtension.lowercased() == "3mf"
+            return ModelFileFormat.isSupported(url)
         }
         guard !items.isEmpty else { return false }
         var moved: [URL] = []
@@ -351,7 +353,9 @@ final class LibraryModel: ObservableObject {
                     if collections.contains(where: { $0.path == url.path }) { continue }
                 }
                 let destination = Self.uniqueDestination(for: url.lastPathComponent, in: folder)
-                if collectionRoot(containing: url) != nil {
+                let isMove = collectionRoot(containing: url) != nil
+                try Self.transferMaterialLibraries(of: url, to: folder, move: isMove)
+                if isMove {
                     try FileManager.default.moveItem(at: url, to: destination)
                     if isDirectory(destination) {
                         remapPaths(from: url.path, to: destination.path)
@@ -378,7 +382,12 @@ final class LibraryModel: ObservableObject {
 
     func trash(_ file: ModelFileItem) {
         perform {
+            // The OBJ's own material library ("Model.mtl" next to "Model.obj") goes with it.
+            let ownLibraries = Self.materialLibraries(of: file.url).filter {
+                $0.deletingPathExtension().lastPathComponent == file.url.deletingPathExtension().lastPathComponent
+            }
             try FileManager.default.trashItem(at: file.url, resultingItemURL: nil)
+            for library in ownLibraries { try? FileManager.default.trashItem(at: library, resultingItemURL: nil) }
             if selection == file.id { selection = nil }
         }
     }
@@ -388,7 +397,7 @@ final class LibraryModel: ObservableObject {
     func importDropped(_ urls: [URL]) -> Bool {
         let folders = urls.filter { isDirectory($0) && collectionRoot(containing: $0) == nil }
         folders.forEach { addCollection($0) }
-        let models = urls.filter { $0.pathExtension.lowercased() == "3mf" }
+        let models = urls.filter { ModelFileFormat.isSupported($0) && !isDirectory($0) }
         if !models.isEmpty {
             let external = models.filter { collectionRoot(containing: $0) == nil }
             if external.isEmpty {
@@ -408,7 +417,7 @@ final class LibraryModel: ObservableObject {
         for url in urls.map(\.standardizedFileURL) {
             if isDirectory(url) {
                 addCollection(url)
-            } else if url.pathExtension.lowercased() == "3mf" {
+            } else if ModelFileFormat.isSupported(url) {
                 if collectionRoot(containing: url) != nil {
                     select(file: url)
                 } else {
@@ -529,7 +538,7 @@ final class LibraryModel: ObservableObject {
                     children.append(child)
                     count += child.modelCount
                 }
-            } else if values.isRegularFile == true, item.pathExtension.lowercased() == "3mf" {
+            } else if values.isRegularFile == true, ModelFileFormat.isSupported(item) {
                 let url = item.standardizedFileURL
                 let parent = url.deletingLastPathComponent().path
                 var relative = parent.hasPrefix(collectionPath) ? String(parent.dropFirst(collectionPath.count)) : ""
@@ -647,6 +656,47 @@ final class LibraryModel: ObservableObject {
     }
 
     /// "Model.3mf" → "Model 2.3mf" (or "Folder 2") when the name is taken.
+    /// Material libraries (`mtllib`) an OBJ file refers to, if they exist next to it.
+    nonisolated static func materialLibraries(of url: URL) -> [URL] {
+        guard ModelFileFormat(url: url) == .obj,
+              let handle = try? FileHandle(forReadingFrom: url) else { return [] }
+        defer { try? handle.close() }
+        // `mtllib` is normally among the first lines.
+        guard let head = try? handle.read(upToCount: 64 * 1024),
+              let text = String(data: head, encoding: .utf8) ?? String(data: head, encoding: .isoLatin1) else { return [] }
+        let folder = url.deletingLastPathComponent()
+        var result: [URL] = []
+        for line in text.split(whereSeparator: \.isNewline) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("mtllib ") || trimmed.hasPrefix("mtllib\t") else { continue }
+            let argument = trimmed.dropFirst(6).trimmingCharacters(in: .whitespaces)
+            let candidates = [argument] + argument.split(separator: " ").map(String.init)
+            for name in candidates where !name.contains("/") {
+                let file = folder.appendingPathComponent(name)
+                if FileManager.default.fileExists(atPath: file.path), !result.contains(file) {
+                    result.append(file)
+                    break
+                }
+            }
+        }
+        return result
+    }
+
+    /// Keeps an OBJ's colours when it is moved or copied: its own "Model.mtl" moves with it,
+    /// shared material libraries are copied. Existing files at the destination are left alone.
+    nonisolated static func transferMaterialLibraries(of url: URL, to folder: URL, move: Bool) throws {
+        for library in materialLibraries(of: url) {
+            let destination = folder.appendingPathComponent(library.lastPathComponent)
+            guard !FileManager.default.fileExists(atPath: destination.path) else { continue }
+            let isOwn = library.deletingPathExtension().lastPathComponent == url.deletingPathExtension().lastPathComponent
+            if move && isOwn {
+                try FileManager.default.moveItem(at: library, to: destination)
+            } else {
+                try FileManager.default.copyItem(at: library, to: destination)
+            }
+        }
+    }
+
     nonisolated static func uniqueDestination(for name: String, in folder: URL) -> URL {
         let fileManager = FileManager.default
         var candidate = folder.appendingPathComponent(name)
