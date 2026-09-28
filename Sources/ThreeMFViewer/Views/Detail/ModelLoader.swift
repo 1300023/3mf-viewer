@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import ThreeMFKit
+import ThreeMFLibrary
 import ThreeMFRendering
 
 struct LoadedModel {

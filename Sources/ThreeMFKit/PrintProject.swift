@@ -117,6 +117,12 @@ public struct SliceSummary: Hashable, Sendable {
     public var printTime: TimeInterval
     public var weight: Double?
     public var slicedPlates: Int
+
+    public init(printTime: TimeInterval, weight: Double? = nil, slicedPlates: Int = 1) {
+        self.printTime = printTime
+        self.weight = weight
+        self.slicedPlates = slicedPlates
+    }
 }
 
 // MARK: - Parsing
@@ -133,14 +139,6 @@ struct BambuPlate {
 struct BambuInstanceRef: Hashable {
     var objectID: Int
     var instanceID: Int
-}
-
-/// Values from `Metadata/project_settings.config` (JSON) or PrusaSlicer's `Slic3r_PE.config` (INI).
-struct ProjectSettings {
-    var printerName: String?
-    var nozzleDiameter: String?
-    var layerHeight: String?
-    var filamentTypes: [String] = []
 }
 
 enum PrintProjectParser {
@@ -239,50 +237,6 @@ enum PrintProjectParser {
         return result
     }
 
-    /// `Metadata/project_settings.config` (Bambu Studio / OrcaSlicer) is JSON.
-    static func parseBambuProjectSettings(_ data: Data) -> ProjectSettings {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return ProjectSettings() }
-        func first(_ key: String) -> String? {
-            let value: String?
-            if let s = json[key] as? String { value = s } else { value = (json[key] as? [String])?.first }
-            guard let v = value?.trimmingCharacters(in: .whitespaces), !v.isEmpty else { return nil }
-            return v
-        }
-        var settings = ProjectSettings()
-        settings.printerName = first("printer_model") ?? first("printer_settings_id")
-        settings.nozzleDiameter = first("nozzle_diameter")
-        settings.layerHeight = first("layer_height")
-        settings.filamentTypes = (json["filament_type"] as? [String]) ?? []
-        return settings
-    }
-
-    /// PrusaSlicer `Metadata/Slic3r_PE.config`: lines like `; printer_model = MK4`.
-    static func parsePrusaProjectSettings(_ data: Data) -> ProjectSettings {
-        guard let text = String(data: data, encoding: .utf8) else { return ProjectSettings() }
-        var values: [String: String] = [:]
-        for rawLine in text.split(whereSeparator: \.isNewline) {
-            var line = Substring(rawLine).trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix(";") { line = String(line.dropFirst()).trimmingCharacters(in: .whitespaces) }
-            guard let eq = line.firstIndex(of: "=") else { continue }
-            let key = line[..<eq].trimmingCharacters(in: .whitespaces)
-            let value = line[line.index(after: eq)...].trimmingCharacters(in: CharacterSet(charactersIn: "\" \t"))
-            values[key] = value
-        }
-        func nonEmpty(_ key: String) -> String? {
-            guard let v = values[key], !v.isEmpty else { return nil }
-            return v
-        }
-        var settings = ProjectSettings()
-        settings.printerName = nonEmpty("printer_settings_id") ?? nonEmpty("printer_model")
-        settings.nozzleDiameter = nonEmpty("nozzle_diameter")?
-            .split(whereSeparator: { $0 == "," || $0 == ";" }).first.map(String.init)
-        settings.layerHeight = nonEmpty("layer_height")
-        settings.filamentTypes = (nonEmpty("filament_type") ?? "")
-            .split(separator: ";").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\" ")) }
-            .filter { !$0.isEmpty }
-        return settings
-    }
-
     /// Names of Bambu Lab printers for the codes used in `slice_info.config`.
     static func bambuPrinterName(code: String) -> String? {
         let names = [
@@ -300,15 +254,9 @@ enum PrintProjectParser {
     }
 
     /// Reads everything except the meshes. `objectsPerPlate` comes from the build items when the model was loaded.
-    static func project(archive: ZipArchive, bambuPlates: [BambuPlate], objectsPerPlate: [Int: Int]) -> PrintProject {
+    static func project(archive: ZipArchive, settings: ProjectSettings,
+                        bambuPlates: [BambuPlate], objectsPerPlate: [Int: Int]) -> PrintProject {
         var project = PrintProject()
-
-        var settings = ProjectSettings()
-        if let data = try? archive.contents(path: "Metadata/project_settings.config") {
-            settings = parseBambuProjectSettings(data)
-        } else if let data = try? archive.contents(path: "Metadata/Slic3r_PE.config") {
-            settings = parsePrusaProjectSettings(data)
-        }
         project.printerName = settings.printerName
         project.nozzleDiameter = settings.nozzleDiameter
         project.layerHeight = settings.layerHeight

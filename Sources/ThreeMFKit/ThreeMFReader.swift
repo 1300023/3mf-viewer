@@ -73,123 +73,61 @@ public enum ThreeMFReader {
     static func load(archive: ZipArchive) throws -> ThreeMFModel {
         guard let rootPath = rootModelPath(in: archive) else { throw ThreeMFError.missingModel }
         let rootKey = ZipArchive.lookupKey(rootPath)
+        let settings = ProjectSettings.load(from: archive)
+        let builder = BuildFlattener(archive: archive, defaultExtruder: settings.filamentColors.isEmpty ? nil : 1)
+        guard var root = try builder.part(rootPath) else { throw ThreeMFError.missingModel }
 
-        var parts: [String: ParsedModelPart] = [:]
-        func part(_ path: String) throws -> ParsedModelPart? {
-            let key = ZipArchive.lookupKey(path)
-            if let cached = parts[key] { return cached }
-            guard let data = try archive.contents(path: path) else { return nil }
-            if Task.isCancelled { throw ThreeMFError.cancelled }
-            let parsed = try ModelPartParser.parse(data: data, partPath: key)
-            parts[key] = parsed
-            return parsed
-        }
-
-        guard var root = try part(rootPath) else { throw ThreeMFError.missingModel }
-
-        // Slicer project data.
-        let modelSettings = (try? archive.contents(path: "Metadata/model_settings.config")).flatMap { $0 }
-        let bambuObjects = modelSettings.map(SlicerConfig.parseBambuModelSettings) ?? [:]
-        let bambuPlates = modelSettings.map(PrintProjectParser.parseBambuPlates) ?? []
-        var plateOfInstance: [BambuInstanceRef: Int] = [:]
-        for plate in bambuPlates {
-            for ref in plate.instances { plateOfInstance[ref] = plate.index }
-        }
-        var filamentColors = (try? archive.contents(path: "Metadata/project_settings.config"))
-            .flatMap { $0 }
-            .map(SlicerConfig.parseBambuFilamentColors) ?? []
+        // PrusaSlicer stores volumes (parts, modifiers…) as triangle ranges of one mesh.
         let prusaObjects = (try? archive.contents(path: "Metadata/Slic3r_PE_model.config"))
             .flatMap { $0 }
             .map(SlicerConfig.parsePrusaModelConfig) ?? [:]
-        if filamentColors.isEmpty {
-            filamentColors = (try? archive.contents(path: "Metadata/Slic3r_PE.config"))
-                .flatMap { $0 }
-                .map(SlicerConfig.parsePrusaExtruderColors) ?? []
-        }
-
-        // PrusaSlicer stores volumes (parts, modifiers…) as triangle ranges of one mesh.
         if !prusaObjects.isEmpty {
-            for (id, settings) in prusaObjects {
+            for (id, objectSettings) in prusaObjects {
                 guard let object = root.objects[id], case .mesh(let mesh) = object.content else { continue }
-                root.objects[id]?.content = .mesh(SlicerConfig.applyPrusaVolumes(mesh, settings: settings))
+                root.objects[id]?.content = .mesh(SlicerConfig.applyPrusaVolumes(mesh, settings: objectSettings))
             }
-            parts[rootKey] = root
+            builder.replacePart(root, key: rootKey)
         }
 
-        // Flatten build items → mesh instances.
-        var instances: [MeshInstance] = []
-        let defaultExtruder: Int? = filamentColors.isEmpty ? nil : 1
-
-        func flatten(partKey: String, objectID: Int, transform: Transform3D, depth: Int,
-                     extruder: Int?, settings: BambuObjectSettings?, name: String?) throws {
-            guard depth < 32, let model = try part(partKey), let object = model.objects[objectID] else { return }
-            if object.type == "support" { return }
-            switch object.content {
-            case .mesh(let mesh):
-                instances.append(MeshInstance(mesh: mesh,
-                                              transform: transform,
-                                              extruder: extruder ?? defaultExtruder,
-                                              objectName: name ?? object.name))
-            case .components(let components):
-                for component in components {
-                    var componentExtruder = extruder
-                    if depth == 0, let partSettings = settings?.parts[component.objectID] {
-                        if !partSettings.isModelPart { continue }
-                        if let e = partSettings.extruder, e > 0 { componentExtruder = e }
-                    }
-                    let childKey = component.path.map(ZipArchive.lookupKey) ?? partKey
-                    try flatten(partKey: childKey,
-                                objectID: component.objectID,
-                                transform: component.transform.then(transform),
-                                depth: depth + 1,
-                                extruder: componentExtruder,
-                                settings: nil,
-                                name: name ?? object.name)
-                }
-            case .empty:
-                break
-            }
-        }
-
-        // Bambu Studio numbers the build items of one object 0, 1, 2… and assigns each to a plate.
-        var instanceNumber: [Int: Int] = [:]
+        // Bambu Studio / OrcaSlicer: per-object extruders, hidden modifier parts and plates.
+        let modelSettings = (try? archive.contents(path: "Metadata/model_settings.config")).flatMap { $0 }
+        let bambuObjects = modelSettings.map(SlicerConfig.parseBambuModelSettings) ?? [:]
+        let bambuPlates = modelSettings.map(PrintProjectParser.parseBambuPlates) ?? []
+        var plateAssigner = PlateAssigner(plates: bambuPlates)
         var objectsPerPlate: [Int: Int] = [:]
-        for item in root.buildItems {
-            let settings = bambuObjects[item.objectID]
-            let extruder = settings?.extruder.flatMap { $0 > 0 ? $0 : nil }
-            let number = instanceNumber[item.objectID, default: 0]
-            instanceNumber[item.objectID] = number + 1
-            let plate = plateOfInstance[BambuInstanceRef(objectID: item.objectID, instanceID: number)]
 
-            let firstInstance = instances.count
-            try flatten(partKey: item.path.map(ZipArchive.lookupKey) ?? rootKey,
-                        objectID: item.objectID,
-                        transform: item.transform,
-                        depth: 0,
-                        extruder: extruder,
-                        settings: settings,
-                        name: settings?.name)
-            if let plate {
-                for i in firstInstance ..< instances.count { instances[i].plate = plate }
+        for item in root.buildItems {
+            let objectSettings = bambuObjects[item.objectID]
+            let firstInstance = builder.instances.count
+            try builder.add(partKey: item.path.map(ZipArchive.lookupKey) ?? rootKey,
+                            objectID: item.objectID,
+                            transform: item.transform,
+                            extruder: objectSettings?.extruder.flatMap { $0 > 0 ? $0 : nil },
+                            settings: objectSettings,
+                            name: objectSettings?.name)
+            if let plate = plateAssigner.nextPlate(forObject: item.objectID) {
+                builder.assign(plate: plate, fromInstance: firstInstance)
                 objectsPerPlate[plate, default: 0] += 1
             }
         }
         // Files without a <build> section: show every mesh object of the root part.
         if root.buildItems.isEmpty {
             for id in root.objects.keys.sorted() {
-                try flatten(partKey: rootKey, objectID: id, transform: .identity, depth: 0,
-                            extruder: nil, settings: nil, name: nil)
+                try builder.add(partKey: rootKey, objectID: id, transform: .identity,
+                                extruder: nil, settings: nil, name: nil)
             }
         }
 
+        let instances = builder.instances
         return ThreeMFModel(unit: root.unit ?? .millimeter,
                             metadata: root.metadata,
                             instances: instances,
-                            filamentColors: filamentColors,
+                            filamentColors: settings.filamentColors,
                             objectCount: root.buildItems.isEmpty ? instances.count : root.buildItems.count,
                             bounds: bounds(of: instances),
                             triangleCount: instances.reduce(0) { $0 + $1.mesh.triangleCount },
                             project: PrintProjectParser.project(archive: archive,
+                                                                settings: settings,
                                                                 bambuPlates: bambuPlates,
                                                                 objectsPerPlate: objectsPerPlate))
     }
@@ -203,7 +141,10 @@ public enum ThreeMFReader {
         let plates = (try? archive.contents(path: "Metadata/model_settings.config"))
             .flatMap { $0 }
             .map(PrintProjectParser.parseBambuPlates) ?? []
-        return PrintProjectParser.project(archive: archive, bambuPlates: plates, objectsPerPlate: [:])
+        return PrintProjectParser.project(archive: archive,
+                                          settings: ProjectSettings.load(from: archive),
+                                          bambuPlates: plates,
+                                          objectsPerPlate: [:])
     }
 
     /// Total print time of the sliced plates, read from `Metadata/slice_info.config` only. Cheap.

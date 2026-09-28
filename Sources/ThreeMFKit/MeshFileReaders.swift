@@ -54,6 +54,20 @@ public enum ModelReader {
     }
 }
 
+// MARK: - Text parsing helper
+
+/// STL (ASCII) and OBJ are parsed with the C library (`strtof`, `strtol`, `strstr`), which needs a
+/// NUL-terminated, writable copy of the text.
+enum TextBuffer {
+    static func make(_ data: Data) -> [CChar] {
+        var buffer = [CChar](repeating: 0, count: data.count + 1)
+        data.withUnsafeBytes { source in
+            buffer.withUnsafeMutableBytes { destination in destination.copyMemory(from: source) }
+        }
+        return buffer
+    }
+}
+
 // MARK: - STL
 
 /// Binary and ASCII STL. Every triangle gets its own three vertices (the viewer is flat-shaded anyway).
@@ -105,10 +119,7 @@ public enum STLReader {
 
     private static func ascii(_ data: Data, key: String) -> Mesh? {
         var positions: [Float] = []
-        var buffer = [CChar](repeating: 0, count: data.count + 1)
-        data.withUnsafeBytes { src in
-            buffer.withUnsafeMutableBytes { dst in dst.copyMemory(from: src) }
-        }
+        var buffer = TextBuffer.make(data)
         buffer.withUnsafeMutableBufferPointer { b in
             guard var p = b.baseAddress else { return }
             while let found = strstr(p, "vertex") {
@@ -171,11 +182,7 @@ public enum OBJReader {
         var current: ColorSource = .inherit
         var objects = 0
 
-        var buffer = [CChar](repeating: 0, count: data.count + 1)
-        data.withUnsafeBytes { src in
-            buffer.withUnsafeMutableBytes { dst in dst.copyMemory(from: src) }
-        }
-
+        var buffer = TextBuffer.make(data)
         buffer.withUnsafeMutableBufferPointer { b in
             guard let start = b.baseAddress else { return }
             let end = start + data.count

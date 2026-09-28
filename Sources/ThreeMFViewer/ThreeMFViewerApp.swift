@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ThreeMFLibrary
 
 /// Entry point: the interface language has to be set before SwiftUI loads any localized string.
 @main

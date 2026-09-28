@@ -80,13 +80,6 @@ enum SlicerConfig {
         return objects
     }
 
-    /// `Metadata/project_settings.config` is JSON with a `filament_colour` array.
-    static func parseBambuFilamentColors(_ data: Data) -> [RGBAColor] {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
-        let values = (json["filament_colour"] as? [String]) ?? (json["extruder_colour"] as? [String]) ?? []
-        return values.map { RGBAColor(hex: $0) ?? RGBAColor(r: 0.8, g: 0.8, b: 0.8) }
-    }
-
     // MARK: PrusaSlicer
 
     static func parsePrusaModelConfig(_ data: Data) -> [Int: PrusaObjectSettings] {
@@ -129,38 +122,6 @@ enum SlicerConfig {
             }
         }
         return objects
-    }
-
-    /// `Metadata/Slic3r_PE.config` is an INI-like file with lines such as
-    /// `; extruder_colour = "#FF8000";"#DB5182"` and `; filament_colour = #FF8000;#DB5182`.
-    static func parsePrusaExtruderColors(_ data: Data) -> [RGBAColor] {
-        guard let text = String(data: data, encoding: .utf8) else { return [] }
-        var extruderColours: [String] = []
-        var filamentColours: [String] = []
-        for rawLine in text.split(whereSeparator: \.isNewline) {
-            var line = Substring(rawLine).trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix(";") { line = String(line.dropFirst()).trimmingCharacters(in: .whitespaces) }
-            guard let eq = line.firstIndex(of: "=") else { continue }
-            let key = line[..<eq].trimmingCharacters(in: .whitespaces)
-            let value = line[line.index(after: eq)...]
-            let items = value.split(separator: ";", omittingEmptySubsequences: false).map {
-                $0.trimmingCharacters(in: CharacterSet(charactersIn: "\" \t"))
-            }
-            if key == "extruder_colour" { extruderColours = items }
-            if key == "filament_colour" { filamentColours = items }
-        }
-        let count = max(extruderColours.count, filamentColours.count)
-        var colors: [RGBAColor] = []
-        for index in 0 ..< count {
-            if index < extruderColours.count, let c = RGBAColor(hex: extruderColours[index]) {
-                colors.append(c)
-            } else if index < filamentColours.count, let c = RGBAColor(hex: filamentColours[index]) {
-                colors.append(c)
-            } else {
-                colors.append(RGBAColor(r: 0.8, g: 0.8, b: 0.8))
-            }
-        }
-        return colors
     }
 
     /// Splits a PrusaSlicer object mesh by its volumes: drops modifier / negative volumes and

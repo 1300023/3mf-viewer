@@ -133,7 +133,7 @@ swift run                       # быстрый запуск из термин�
 ./scripts/build-app.sh          # собрать "build/3MF Viewer.app"
 ./scripts/build-app.sh --install    # собрать, скопировать в /Applications и подключить Quick Look
 UNIVERSAL=1 ./scripts/build-app.sh --zip   # универсальный бинарник + zip для релиза
-swift test                      # тесты парсера (нужен Xcode)
+swift test                      # тесты парсера и библиотеки (нужен Xcode)
 ```
 
 Чтобы работать в Xcode, откройте `Package.swift` (File → Open…) и запустите схему `ThreeMFViewer`.
@@ -141,25 +141,31 @@ swift test                      # тесты парсера (нужен Xcode)
 ## Структура проекта
 
 ```
-Sources/ThreeMFKit/        разбор 3MF, без UI и без зависимостей
+Sources/ThreeMFKit/        разбор файлов моделей, без UI и без зависимостей
   ZipArchive.swift           минимальный ZIP/ZIP64-ридер (Apple Compression)
   XMLScanner.swift           быстрый побайтовый XML-токенизатор (миллионы вершин)
   ModelPartParser.swift      ядро 3MF + materials + production extension
-  SlicerConfig.swift         данные проектов Bambu Studio / OrcaSlicer / PrusaSlicer
-  PrintProject.swift         столы, результаты нарезки (время, филамент), принтер
+  BuildFlattener.swift       элементы сборки и цепочки компонентов → размещённые меши, раскладка по столам
+  SlicerConfig.swift         данные объектов Bambu Studio / OrcaSlicer / PrusaSlicer
+  ProjectSettings.swift      принтер, профиль и цвета филаментов проекта слайсера
+  PrintProject.swift         столы, результаты нарезки (время, филамент)
   PaintDecoder.swift         декодер мультиматериальной покраски
-  ThreeMFReader.swift        публичный API: load(url:), thumbnailData(url:)
   MeshFileReaders.swift      STL (двоичный и текстовый) и OBJ + MTL
-Sources/ThreeMFRendering/  сцена SceneKit и офскрин-рендер (общий код)
+  ThreeMFReader.swift        публичный API: load(url:), thumbnailData(url:), printProject(url:)
+Sources/ThreeMFLibrary/    коллекции на диске, без UI: сканер, операции с файлами, фильтр и сортировка,
+                           настройки, слежение за папками (FSEvents)
+Sources/ThreeMFRendering/  сцена SceneKit, офскрин-рендер, форматирование данных печати (общее с Quick Look)
 Sources/ThreeMFViewer/     приложение на SwiftUI
-  Library/                   коллекции, дерево категорий (папки), слежение за диском, кэш миниатюр
-  Rendering/                 SwiftUI-обёртка над SCNView
-  Views/                     панель коллекций, список моделей, 3D-вид, информационная панель
+  Library/                   LibraryModel (состояние окна), кэш миниатюр
+  Views/Library/             панель коллекций, список и галерея моделей, меню
+  Views/Detail/              3D-вид, информационная панель, выбор стола
+  Views/Common/              мелкие общие компоненты
 Sources/Extensions/        расширения Quick Look: превью (пробел) и миниатюры (иконки в Finder)
 Packaging/                 Info.plist, entitlements, иконка и локализации для бандлов
 scripts/                   build-app.sh, генераторы демо-моделей, скриншотов, иконки и тестовых файлов
 docs/screenshots/          картинки для README
-Tests/ThreeMFKitTests/     тесты парсера с маленькими .3mf-файлами
+Tests/ThreeMFKitTests/     тесты парсера с маленькими файлами .3mf / .stl / .obj
+Tests/ThreeMFLibraryTests/ тесты библиотеки на временных папках
 ```
 
 ## Выпуск релиза

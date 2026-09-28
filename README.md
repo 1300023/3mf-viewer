@@ -127,7 +127,7 @@ swift run                       # quick start from the terminal
 ./scripts/build-app.sh          # build "build/3MF Viewer.app"
 ./scripts/build-app.sh --install    # build, copy to /Applications, register Quick Look
 UNIVERSAL=1 ./scripts/build-app.sh --zip   # universal binary + zip for a release
-swift test                      # unit tests for the parser (needs Xcode)
+swift test                      # parser and library tests (needs Xcode)
 ```
 
 To work in Xcode, just open `Package.swift` (File → Open…) and run the `ThreeMFViewer` scheme.
@@ -135,25 +135,31 @@ To work in Xcode, just open `Package.swift` (File → Open…) and run the `Thre
 ## Project layout
 
 ```
-Sources/ThreeMFKit/        3MF parsing, no UI and no dependencies
+Sources/ThreeMFKit/        model file parsing, no UI and no dependencies
   ZipArchive.swift           minimal ZIP/ZIP64 reader (Apple Compression framework)
   XMLScanner.swift           fast byte-level XML tokenizer (millions of vertices)
   ModelPartParser.swift      3MF core + materials + production extension
-  SlicerConfig.swift         Bambu Studio / OrcaSlicer / PrusaSlicer project data
-  PrintProject.swift         plates, slicing results (print time, filament), printer
+  BuildFlattener.swift       build items and component chains → placed meshes, plate assignment
+  SlicerConfig.swift         Bambu Studio / OrcaSlicer / PrusaSlicer per-object data
+  ProjectSettings.swift      printer, profile and filament colours of a slicer project
+  PrintProject.swift         plates, slicing results (print time, filament)
   PaintDecoder.swift         multi-material painting decoder
-  ThreeMFReader.swift        public API: load(url:), thumbnailData(url:)
   MeshFileReaders.swift      STL (binary / ASCII) and OBJ + MTL
-Sources/ThreeMFRendering/  SceneKit scene + off-screen renderer (shared)
+  ThreeMFReader.swift        public API: load(url:), thumbnailData(url:), printProject(url:)
+Sources/ThreeMFLibrary/    collections on disk, no UI: scanner, file operations, filtering / sorting,
+                           settings, FSEvents watcher
+Sources/ThreeMFRendering/  SceneKit scene, off-screen renderer, print data formatting (shared with Quick Look)
 Sources/ThreeMFViewer/     the SwiftUI app
-  Library/                   collections, category tree (folders), watcher, thumbnail cache
-  Rendering/                 SwiftUI wrapper around SCNView
-  Views/                     collections sidebar, model list, 3D view, info panel
+  Library/                   LibraryModel (window state), thumbnail cache
+  Views/Library/             collections sidebar, model list and gallery, menus
+  Views/Detail/              3D view, info panel, plate picker
+  Views/Common/              small shared views
 Sources/Extensions/        Quick Look preview (Space) and thumbnail (Finder icons) extensions
 Packaging/                 Info.plists, entitlements, icon, localizations for the bundles
 scripts/                   build-app.sh, demo-model / screenshot / icon / test-fixture generators
 docs/screenshots/          images used in this README
-Tests/ThreeMFKitTests/     parser tests with small .3mf fixtures
+Tests/ThreeMFKitTests/     parser tests with small .3mf / .stl / .obj fixtures
+Tests/ThreeMFLibraryTests/ library tests on temporary folders
 ```
 
 ## Releasing

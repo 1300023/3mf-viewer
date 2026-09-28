@@ -1,7 +1,7 @@
 import AppKit
 import CryptoKit
-import ImageIO
 import ThreeMFKit
+import ThreeMFLibrary
 import ThreeMFRendering
 
 /// Provides list thumbnails: the image embedded by the slicer if there is one, otherwise an
@@ -68,7 +68,8 @@ final class ThumbnailStore: @unchecked Sendable {
             }
             guard hasEmbeddedPreview,
                   let data = try? ThreeMFReader.thumbnailData(url: url),
-                  let embedded = Self.downscaled(data) else { return nil }
+                  let cgImage = EmbeddedThumbnail.image(data: data, maxPixelSize: Self.pixelSize) else { return nil }
+            let embedded = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
             Self.write(embedded, to: diskFile)
             return embedded
         }
@@ -136,17 +137,6 @@ final class ThumbnailStore: @unchecked Sendable {
     private static func cost(of image: NSImage) -> Int {
         guard let rep = image.representations.first else { return 1 }
         return max(1, rep.pixelsWide * rep.pixelsHigh * 4)
-    }
-
-    static func downscaled(_ data: Data) -> NSImage? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: pixelSize,
-        ]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
     }
 
     static func write(_ image: NSImage, to url: URL?) {

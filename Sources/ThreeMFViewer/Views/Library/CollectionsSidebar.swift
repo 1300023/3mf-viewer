@@ -1,5 +1,7 @@
 import AppKit
 import SwiftUI
+import ThreeMFKit
+import ThreeMFLibrary
 
 /// Left column: collections and their category tree (= folders on disk).
 struct CollectionsSidebar: View {

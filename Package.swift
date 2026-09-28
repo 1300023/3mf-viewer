@@ -18,6 +18,13 @@ let package = Package(
             name: "ThreeMFKit",
             path: "Sources/ThreeMFKit"
         ),
+        // Collections on disk: scanning, category / model file operations, filtering and sorting, settings.
+        // Foundation only, no UI.
+        .target(
+            name: "ThreeMFLibrary",
+            dependencies: ["ThreeMFKit"],
+            path: "Sources/ThreeMFLibrary"
+        ),
         // SceneKit scene building and off-screen rendering, shared by the app and the extensions.
         .target(
             name: "ThreeMFRendering",
@@ -27,7 +34,7 @@ let package = Package(
         // The macOS app (SwiftUI).
         .executableTarget(
             name: "ThreeMFViewer",
-            dependencies: ["ThreeMFKit", "ThreeMFRendering"],
+            dependencies: ["ThreeMFKit", "ThreeMFLibrary", "ThreeMFRendering"],
             path: "Sources/ThreeMFViewer"
         ),
         // Quick Look preview extension (space bar in Finder). Packaged as an .appex by scripts/build-app.sh.
@@ -47,6 +54,11 @@ let package = Package(
             dependencies: ["ThreeMFKit"],
             path: "Tests/ThreeMFKitTests",
             resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "ThreeMFLibraryTests",
+            dependencies: ["ThreeMFLibrary", "ThreeMFKit"],
+            path: "Tests/ThreeMFLibraryTests"
         ),
     ]
 )
