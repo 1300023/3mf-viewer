@@ -4,11 +4,21 @@ import ThreeMFKit
 import ThreeMFRendering
 
 struct LoadedModel {
-    /// nil when the archive has no model part (e.g. a sliced ".gcode.3mf").
+    /// nil when the archive has no model part.
     let model: ThreeMFModel?
-    let viewer: ViewerScene?
+    /// Printer, plates and slicing results (also available for files without geometry, e.g. ".gcode.3mf").
+    let project: PrintProject
     /// Embedded preview, shown when there is nothing to render.
     let previewImage: NSImage?
+}
+
+/// What the detail view shows for the selected plate (or for all plates).
+struct PlateContent {
+    /// The model restricted to the plate; nil when the file has no model part.
+    let model: ThreeMFModel?
+    let viewer: ViewerScene?
+    /// Shown instead of the 3D view when the plate has no geometry.
+    let image: NSImage?
 }
 
 @MainActor
@@ -20,36 +30,95 @@ final class ModelLoader: ObservableObject {
     }
 
     @Published private(set) var state: State = .loading
+    /// nil = all plates.
+    @Published private(set) var selectedPlate: Int?
+    @Published private(set) var content: PlateContent?
+    @Published private(set) var isSwitchingPlate = false
+
+    private var cache: [Int: PlateContent] = [:]   // key 0 = all plates
+    private var plateTask: Task<Void, Never>?
 
     func load(_ file: ModelFileItem) async {
         state = .loading
+        selectedPlate = nil
+        content = nil
+        cache = [:]
+        plateTask?.cancel()
+
         let url = file.url
-        let work = Task.detached(priority: .userInitiated) { () throws -> LoadedModel in
-            let model: ThreeMFModel?
+        let work = Task.detached(priority: .userInitiated) { () throws -> (LoadedModel, PlateContent, Int?) in
+            var model: ThreeMFModel?
+            var project: PrintProject
             do {
-                model = try ThreeMFReader.load(url: url)
+                let loaded = try ThreeMFReader.load(url: url)
+                model = loaded
+                project = loaded.project
             } catch ThreeMFError.missingModel {
                 model = nil
+                project = (try? ThreeMFReader.printProject(url: url)) ?? PrintProject()
             }
             try Task.checkCancellation()
-            if let model, model.triangleCount > 0 {
-                return LoadedModel(model: model, viewer: ViewerScene(model: model), previewImage: nil)
+            let preview = (try? ThreeMFReader.thumbnailData(url: url)).flatMap { NSImage(data: $0) }
+            let loaded = LoadedModel(model: model, project: project, previewImage: preview)
+            // Multi-plate projects open on their first plate: all plates side by side are tiny.
+            if let model, model.triangleCount > 0, project.plates.count > 1, let first = project.plates.first {
+                let plateModel = model.onPlate(first.index)
+                if plateModel.triangleCount > 0 {
+                    return (loaded, Self.makeContent(model: plateModel, image: nil), first.index)
+                }
             }
-            let image = (try? ThreeMFReader.thumbnailData(url: url)).flatMap { NSImage(data: $0) }
-            return LoadedModel(model: model, viewer: nil, previewImage: image)
+            return (loaded, Self.makeContent(model: model, image: preview), nil)
         }
 
         do {
-            let loaded = try await withTaskCancellationHandler {
+            let (loaded, content, plate) = try await withTaskCancellationHandler {
                 try await work.value
             } onCancel: {
                 work.cancel()
             }
             guard !Task.isCancelled else { return }
+            cache[plate ?? 0] = content
+            self.content = content
+            selectedPlate = plate
             state = .loaded(loaded)
         } catch {
             guard !Task.isCancelled else { return }
             state = .failed(error.localizedDescription)
         }
+    }
+
+    /// Shows one plate (or all of them when `plate` is nil). Scenes are built in the background and cached.
+    func select(plate: Int?) {
+        guard case .loaded(let loaded) = state, plate != selectedPlate else { return }
+        selectedPlate = plate
+        plateTask?.cancel()
+        isSwitchingPlate = false
+
+        let key = plate ?? 0
+        if let cached = cache[key] {
+            content = cached
+            return
+        }
+        let plateImage = plate.flatMap { loaded.project.plate($0)?.image }.flatMap { NSImage(data: $0) }
+        let fallbackImage = plateImage ?? loaded.previewImage
+        let model = loaded.model
+        isSwitchingPlate = true
+        plateTask = Task { [weak self] in
+            let content = await Task.detached(priority: .userInitiated) {
+                let restricted = plate.flatMap { p in model?.onPlate(p) } ?? model
+                return Self.makeContent(model: restricted, image: fallbackImage)
+            }.value
+            guard let self, !Task.isCancelled else { return }
+            self.cache[key] = content
+            self.content = content
+            self.isSwitchingPlate = false
+        }
+    }
+
+    nonisolated private static func makeContent(model: ThreeMFModel?, image: NSImage?) -> PlateContent {
+        if let model, model.triangleCount > 0 {
+            return PlateContent(model: model, viewer: ViewerScene(model: model), image: nil)
+        }
+        return PlateContent(model: model, viewer: nil, image: image)
     }
 }

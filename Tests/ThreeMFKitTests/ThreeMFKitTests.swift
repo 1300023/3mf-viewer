@@ -66,10 +66,70 @@ final class ThreeMFKitTests: XCTestCase {
         XCTAssertGreaterThan(thumbnail.count, 20)
     }
 
+    func testBambuPlatesAndSliceInfo() throws {
+        let url = try fixture("bambu_plates")
+        let model = try ThreeMFReader.load(url: url)
+        let project = model.project
+
+        XCTAssertEqual(project.printerName, "Bambu Lab P1S 0.4 nozzle")  // printer_model is empty
+        XCTAssertEqual(project.nozzleDiameter, "0.4")
+        XCTAssertEqual(project.layerHeight, "0.2")
+        XCTAssertEqual(project.filamentTypes, ["PLA", "PETG"])
+
+        XCTAssertEqual(project.plates.map(\.index), [1, 2])
+        XCTAssertEqual(project.plates[1].name, "Big & small")
+        XCTAssertEqual(project.plates.map(\.objectCount), [1, 2])
+        XCTAssertNotNil(project.plates[0].thumbnail)  // no _small.png → the full image
+        XCTAssertNotNil(project.plates[1].image)
+        XCTAssertLessThan(try XCTUnwrap(project.plates[1].thumbnail).count, try XCTUnwrap(project.plates[1].image).count)
+
+        // Only plate 2 is sliced.
+        XCTAssertNil(project.plates[0].slice)
+        let slice = try XCTUnwrap(project.plates[1].slice)
+        XCTAssertEqual(slice.printTime, 5400)
+        XCTAssertEqual(slice.weight, 30.5)
+        XCTAssertEqual(slice.meters ?? 0, 10, accuracy: 1e-9)
+        XCTAssertEqual(slice.filaments.map(\.type), ["PLA", "PETG"])
+        XCTAssertEqual(slice.filaments[1].color, color("#FF0000"))
+        XCTAssertEqual(project.totalPrintTime, 5400)
+        XCTAssertEqual(project.slicedPlates.count, 1)
+
+        // Build items are split between the plates: the second copy of object 2 is on plate 2.
+        XCTAssertEqual(model.instances.map(\.plate), [1, 2, 2])
+        let first = model.onPlate(1)
+        XCTAssertEqual(first.instances.count, 1)
+        XCTAssertEqual(first.objectCount, 1)
+        XCTAssertEqual(try XCTUnwrap(first.sizeInMillimeters).x, 10, accuracy: 1e-6)
+        let second = model.onPlate(2)
+        XCTAssertEqual(second.triangleCount, 24)
+        XCTAssertEqual(try XCTUnwrap(second.bounds).min.x, 400, accuracy: 1e-6)
+        XCTAssertEqual(try XCTUnwrap(second.sizeInMillimeters).x, 80, accuracy: 1e-6)
+
+        // The same data without loading meshes, and the cheap summary for the library list.
+        let standalone = try ThreeMFReader.printProject(url: url)
+        XCTAssertEqual(standalone.plates.count, 2)
+        XCTAssertEqual(standalone.plates[1].slice?.printTime, 5400)
+        let summary = try XCTUnwrap(ThreeMFReader.sliceSummary(url: url))
+        XCTAssertEqual(summary.printTime, 5400)
+        XCTAssertEqual(summary.weight, 30.5)
+        XCTAssertNil(ThreeMFReader.sliceSummary(url: try fixture("bambu")))
+    }
+
+    func testPrinterNameFallbacks() {
+        XCTAssertEqual(PrintProjectParser.bambuPrinterName(code: "N7"), "Bambu Lab P2S")
+        let ini = Data("; printer_settings_id = Original Prusa MK4 0.4 nozzle\n; nozzle_diameter = 0.4,0.6\n; filament_type = PETG;PLA\n".utf8)
+        let settings = PrintProjectParser.parsePrusaProjectSettings(ini)
+        XCTAssertEqual(settings.printerName, "Original Prusa MK4 0.4 nozzle")
+        XCTAssertEqual(settings.nozzleDiameter, "0.4")
+        XCTAssertEqual(settings.filamentTypes, ["PETG", "PLA"])
+    }
+
     // MARK: - PrusaSlicer
 
     func testPrusaVolumesAndColors() throws {
         let model = try ThreeMFReader.load(url: fixture("prusa"))
+        XCTAssertEqual(model.project.layerHeight, "0.2")
+        XCTAssertTrue(model.project.plates.isEmpty)
         XCTAssertEqual(model.filamentColors, [color("#FF8000"), color("#00FF00")])
         // 24 triangles in the file, 12 of them belong to a modifier volume.
         XCTAssertEqual(model.triangleCount, 12)

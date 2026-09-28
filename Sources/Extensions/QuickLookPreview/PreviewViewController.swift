@@ -110,6 +110,14 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             parts.append(String(format: NSLocalizedString("Triangles: %@", comment: ""),
                                 model.triangleCount.formatted()))
         }
+        if let time = model.project.totalPrintTime {
+            let formatter = DateComponentsFormatter()
+            formatter.unitsStyle = .abbreviated
+            formatter.allowedUnits = time >= 3600 ? [.hour, .minute] : [.minute]
+            if let text = formatter.string(from: max(time, 60)) {
+                parts.append(String(format: NSLocalizedString("Print time: %@", comment: ""), text))
+            }
+        }
         if let title = model.metadataValue("Title"), !title.isEmpty {
             parts.append(title)
         }

@@ -88,9 +88,13 @@ public enum ThreeMFReader {
         guard var root = try part(rootPath) else { throw ThreeMFError.missingModel }
 
         // Slicer project data.
-        let bambuObjects = (try? archive.contents(path: "Metadata/model_settings.config"))
-            .flatMap { $0 }
-            .map(SlicerConfig.parseBambuModelSettings) ?? [:]
+        let modelSettings = (try? archive.contents(path: "Metadata/model_settings.config")).flatMap { $0 }
+        let bambuObjects = modelSettings.map(SlicerConfig.parseBambuModelSettings) ?? [:]
+        let bambuPlates = modelSettings.map(PrintProjectParser.parseBambuPlates) ?? []
+        var plateOfInstance: [BambuInstanceRef: Int] = [:]
+        for plate in bambuPlates {
+            for ref in plate.instances { plateOfInstance[ref] = plate.index }
+        }
         var filamentColors = (try? archive.contents(path: "Metadata/project_settings.config"))
             .flatMap { $0 }
             .map(SlicerConfig.parseBambuFilamentColors) ?? []
@@ -147,9 +151,17 @@ public enum ThreeMFReader {
             }
         }
 
+        // Bambu Studio numbers the build items of one object 0, 1, 2… and assigns each to a plate.
+        var instanceNumber: [Int: Int] = [:]
+        var objectsPerPlate: [Int: Int] = [:]
         for item in root.buildItems {
             let settings = bambuObjects[item.objectID]
             let extruder = settings?.extruder.flatMap { $0 > 0 ? $0 : nil }
+            let number = instanceNumber[item.objectID, default: 0]
+            instanceNumber[item.objectID] = number + 1
+            let plate = plateOfInstance[BambuInstanceRef(objectID: item.objectID, instanceID: number)]
+
+            let firstInstance = instances.count
             try flatten(partKey: item.path.map(ZipArchive.lookupKey) ?? rootKey,
                         objectID: item.objectID,
                         transform: item.transform,
@@ -157,6 +169,10 @@ public enum ThreeMFReader {
                         extruder: extruder,
                         settings: settings,
                         name: settings?.name)
+            if let plate {
+                for i in firstInstance ..< instances.count { instances[i].plate = plate }
+                objectsPerPlate[plate, default: 0] += 1
+            }
         }
         // Files without a <build> section: show every mesh object of the root part.
         if root.buildItems.isEmpty {
@@ -172,7 +188,35 @@ public enum ThreeMFReader {
                             filamentColors: filamentColors,
                             objectCount: root.buildItems.isEmpty ? instances.count : root.buildItems.count,
                             bounds: bounds(of: instances),
-                            triangleCount: instances.reduce(0) { $0 + $1.mesh.triangleCount })
+                            triangleCount: instances.reduce(0) { $0 + $1.mesh.triangleCount },
+                            project: PrintProjectParser.project(archive: archive,
+                                                                bambuPlates: bambuPlates,
+                                                                objectsPerPlate: objectsPerPlate))
+    }
+
+    // MARK: - Slicer project without meshes
+
+    /// Printer, plates and slicing results. Useful for files without geometry (e.g. `.gcode.3mf`);
+    /// `load(url:)` already includes this in `ThreeMFModel.project`.
+    public static func printProject(url: URL) throws -> PrintProject {
+        let archive = try ZipArchive(url: url)
+        let plates = (try? archive.contents(path: "Metadata/model_settings.config"))
+            .flatMap { $0 }
+            .map(PrintProjectParser.parseBambuPlates) ?? []
+        return PrintProjectParser.project(archive: archive, bambuPlates: plates, objectsPerPlate: [:])
+    }
+
+    /// Total print time of the sliced plates, read from `Metadata/slice_info.config` only. Cheap.
+    public static func sliceSummary(url: URL) -> SliceSummary? {
+        guard let archive = try? ZipArchive(url: url),
+              let data = try? archive.contents(path: "Metadata/slice_info.config") else { return nil }
+        let plates = PrintProjectParser.parseSliceInfo(data).values.map { $0.info }
+        let times = plates.compactMap(\.printTime)
+        guard !times.isEmpty else { return nil }
+        let weights = plates.compactMap(\.weight)
+        return SliceSummary(printTime: times.reduce(0, +),
+                            weight: weights.isEmpty ? nil : weights.reduce(0, +),
+                            slicedPlates: times.count)
     }
 
     // MARK: - Helpers

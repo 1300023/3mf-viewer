@@ -239,7 +239,117 @@ def make_prusa():
     }, stored={"3D/3dmodel.model"})
 
 
+def make_bambu_plates():
+    """Two plates: object 2 has two build items (plate 1 and plate 2), object 4 is on plate 2.
+    Only plate 2 has been sliced."""
+    a_v, a_t = cube(10.0)
+    b_v, b_t = cube(30.0)
+    root = f"""<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+ <metadata name="Application">BambuStudio-02.07.01.62</metadata>
+ <resources>
+  <object id="2" type="model">
+   <mesh>
+    <vertices>
+{vertices_xml(a_v)}
+    </vertices>
+    <triangles>
+{triangles_xml(a_t)}
+    </triangles>
+   </mesh>
+  </object>
+  <object id="4" type="model">
+   <mesh>
+    <vertices>
+{vertices_xml(b_v)}
+    </vertices>
+    <triangles>
+{triangles_xml(b_t)}
+    </triangles>
+   </mesh>
+  </object>
+ </resources>
+ <build>
+  <item objectid="2" transform="1 0 0 0 1 0 0 0 1 100 100 0" printable="1"/>
+  <item objectid="2" transform="1 0 0 0 1 0 0 0 1 400 100 0" printable="1"/>
+  <item objectid="4" transform="1 0 0 0 1 0 0 0 1 450 150 0" printable="1"/>
+ </build>
+</model>"""
+    settings = """<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <object id="2">
+    <metadata key="name" value="Small"/>
+    <metadata key="extruder" value="1"/>
+  </object>
+  <object id="4">
+    <metadata key="name" value="Big"/>
+    <metadata key="extruder" value="2"/>
+  </object>
+  <plate>
+    <metadata key="plater_id" value="1"/>
+    <metadata key="plater_name" value=""/>
+    <metadata key="thumbnail_file" value="Metadata/plate_1.png"/>
+    <model_instance>
+      <metadata key="object_id" value="2"/>
+      <metadata key="instance_id" value="0"/>
+    </model_instance>
+  </plate>
+  <plate>
+    <metadata key="plater_id" value="2"/>
+    <metadata key="plater_name" value="Big &amp; small"/>
+    <metadata key="thumbnail_file" value="Metadata/plate_2.png"/>
+    <model_instance>
+      <metadata key="object_id" value="2"/>
+      <metadata key="instance_id" value="1"/>
+    </model_instance>
+    <model_instance>
+      <metadata key="object_id" value="4"/>
+      <metadata key="instance_id" value="0"/>
+    </model_instance>
+  </plate>
+</config>"""
+    slice_info = """<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <header>
+    <header_item key="X-BBL-Client-Type" value="slicer"/>
+  </header>
+  <plate>
+    <metadata key="index" value="2"/>
+    <metadata key="printer_model_id" value="C12"/>
+    <metadata key="nozzle_diameters" value="0.4"/>
+    <metadata key="prediction" value="5400"/>
+    <metadata key="weight" value="30.5"/>
+    <metadata key="support_used" value="false"/>
+    <object identify_id="10" name="Small" skipped="false" />
+    <object identify_id="11" name="Big" skipped="false" />
+    <filament id="1" tray_info_idx="GFA00" type="PLA" color="#FFFFFF" used_m="2.5" used_g="7.5" />
+    <filament id="2" tray_info_idx="GFG99" type="PETG" color="#FF0000" used_m="7.5" used_g="23" />
+    <warning msg="x" level="1" error_code ="1000C001"  />
+  </plate>
+</config>"""
+    project = json.dumps({
+        "filament_colour": ["#FFFFFF", "#FF0000"],
+        "filament_type": ["PLA", "PETG"],
+        "printer_model": "",
+        "printer_settings_id": "Bambu Lab P1S 0.4 nozzle",
+        "nozzle_diameter": ["0.4"],
+        "layer_height": "0.2",
+    })
+    write("bambu_plates.3mf", {
+        "[Content_Types].xml": CONTENT_TYPES,
+        "_rels/.rels": RELS.format(thumb="Metadata/plate_1.png"),
+        "3D/3dmodel.model": root,
+        "Metadata/model_settings.config": settings,
+        "Metadata/project_settings.config": project,
+        "Metadata/slice_info.config": slice_info,
+        "Metadata/plate_1.png": png(rgb=(0, 200, 0)),
+        "Metadata/plate_2.png": png(width=8, height=8, rgb=(200, 0, 0)),
+        "Metadata/plate_2_small.png": png(width=2, height=2, rgb=(200, 0, 0)),
+    })
+
+
 if __name__ == "__main__":
     make_cube()
     make_bambu()
     make_prusa()
+    make_bambu_plates()

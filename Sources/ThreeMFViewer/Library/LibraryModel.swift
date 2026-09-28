@@ -1,6 +1,7 @@
 import AppKit
 import CoreServices
 import SwiftUI
+import ThreeMFKit
 
 struct ModelFileItem: Identifiable, Hashable, Sendable {
     let url: URL
@@ -45,7 +46,7 @@ struct SidebarRow: Identifiable, Hashable {
 }
 
 enum FileSortOrder: String, CaseIterable, Identifiable {
-    case name, modified, size
+    case name, modified, size, printTime
 
     var id: String { rawValue }
 
@@ -54,6 +55,7 @@ enum FileSortOrder: String, CaseIterable, Identifiable {
         case .name: return "Name"
         case .modified: return "Date Modified"
         case .size: return "Size"
+        case .printTime: return "Print Time"
         }
     }
 }
@@ -104,6 +106,8 @@ final class LibraryModel: ObservableObject {
     @Published private(set) var expanded: Set<String> {
         didSet { defaults.set(Array(expanded), forKey: Keys.expanded) }
     }
+    /// Print time and weight of sliced projects, read in the background after each scan (keyed by file id).
+    @Published private(set) var sliceSummaries: [String: SliceSummary] = [:]
     @Published var namePrompt: NamePrompt? {
         didSet {
             guard namePrompt?.id != oldValue?.id else { return }
@@ -131,6 +135,9 @@ final class LibraryModel: ObservableObject {
     private var debounceTask: Task<Void, Never>?
     private var pendingSelection: String?
     private var watcher: FolderWatcher?
+    /// File id → cache key the summary (or its absence) was computed for.
+    private var summaryKeys: [String: String] = [:]
+    private var summaryTask: Task<Void, Never>?
 
     init() {
         let stored = UserDefaults.standard
@@ -192,6 +199,17 @@ final class LibraryModel: ObservableObject {
             return result.sorted { $0.modified > $1.modified }
         case .size:
             return result.sorted { $0.size > $1.size }
+        case .printTime:
+            // Shortest prints first; files that were never sliced go to the end, by name.
+            return result.sorted {
+                switch (sliceSummary(for: $0)?.printTime, sliceSummary(for: $1)?.printTime) {
+                case let (a?, b?) where a != b: return a < b
+                case (_?, nil): return true
+                case (nil, _?): return false
+                default:
+                    return $0.url.lastPathComponent.localizedStandardCompare($1.url.lastPathComponent) == .orderedAscending
+                }
+            }
         }
     }
 
@@ -444,6 +462,36 @@ final class LibraryModel: ObservableObject {
         pendingSelection = nil
         if let selected = selection, !files.contains(where: { $0.id == selected }) {
             selection = nil
+        }
+        loadSliceSummaries()
+    }
+
+    // MARK: - Slicing summaries
+
+    func sliceSummary(for file: ModelFileItem) -> SliceSummary? {
+        summaryKeys[file.id] == file.cacheKey ? sliceSummaries[file.id] : nil
+    }
+
+    /// Reads `slice_info.config` of new or changed files in the background, in small batches.
+    private func loadSliceSummaries() {
+        let pending = files.filter { summaryKeys[$0.id] != $0.cacheKey }
+        guard !pending.isEmpty else { return }
+        summaryTask?.cancel()
+        summaryTask = Task { [weak self] in
+            let batchSize = 32
+            for start in stride(from: 0, to: pending.count, by: batchSize) {
+                let batch = Array(pending[start ..< min(start + batchSize, pending.count)])
+                let results = await Task.detached(priority: .utility) {
+                    batch.map { (id: $0.id, key: $0.cacheKey, summary: ThreeMFReader.sliceSummary(url: $0.url)) }
+                }.value
+                guard let self, !Task.isCancelled else { return }
+                var summaries = self.sliceSummaries
+                for result in results {
+                    self.summaryKeys[result.id] = result.key
+                    summaries[result.id] = result.summary
+                }
+                self.sliceSummaries = summaries
+            }
         }
     }
 

@@ -40,6 +40,7 @@ Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Open
 - **Interactive 3D preview** (SceneKit): orbit, zoom, pan, reset view (⌘0), turntable auto-rotation, wireframe, build-plate grid.
 - **Colours from the slicer project**: filament colours from Bambu Studio / OrcaSlicer (`project_settings.config`) and PrusaSlicer (`Slic3r_PE.config`), per-object / per-part extruders, multi-material painting (`paint_color`, `mmu_segmentation`), and 3MF material colours (`basematerials`, `colorgroup`).
 - **Correct geometry**: components, the production extension (objects stored in `3D/Objects/*.model`), transforms, units; modifiers / negative volumes are hidden.
+- **Plates and print data.** Multi-plate Bambu Studio / OrcaSlicer projects get a plate picker with the slicer's plate previews; each plate is shown on its own. For sliced projects (including `.gcode.3mf`) you see the print time, filament weight and length per colour, printer, nozzle and layer height. The library shows the print time next to each file and can sort by it.
 - **Info panel**: dimensions in mm, object and triangle counts, filaments, title, designer, application.
 - **Quick Look in Finder**: press Space on a `.3mf` to rotate the model in 3D right in the Quick Look window, and see model previews as file icons.
 - **Open With…** — send the model to Bambu Studio, PrusaSlicer, OrcaSlicer or any other app; Show in Finder, Copy Path.
@@ -138,6 +139,7 @@ Sources/ThreeMFKit/        3MF parsing, no UI and no dependencies
   XMLScanner.swift           fast byte-level XML tokenizer (millions of vertices)
   ModelPartParser.swift      3MF core + materials + production extension
   SlicerConfig.swift         Bambu Studio / OrcaSlicer / PrusaSlicer project data
+  PrintProject.swift         plates, slicing results (print time, filament), printer
   PaintDecoder.swift         multi-material painting decoder
   ThreeMFReader.swift        public API: load(url:), thumbnailData(url:)
 Sources/ThreeMFRendering/  SceneKit scene + off-screen renderer (shared)
@@ -160,7 +162,7 @@ For a signed and notarized build set `SIGN_IDENTITY="Developer ID Application: �
 
 ## Roadmap ideas
 
-- Plate selector for multi-plate Bambu projects
+- STL and OBJ files in the library
 - Grid (gallery) view, tags and favourites
 
 ## License

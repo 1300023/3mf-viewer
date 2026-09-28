@@ -167,6 +167,8 @@ public struct MeshInstance: Sendable {
     /// Extruder / filament slot assigned by the slicer project, if any.
     public var extruder: Int?
     public var objectName: String?
+    /// Plate number in a multi-plate Bambu Studio / OrcaSlicer project.
+    public var plate: Int? = nil
 }
 
 public struct MetadataEntry: Hashable, Sendable {
@@ -186,6 +188,18 @@ public struct ThreeMFModel: Sendable {
     /// Bounds of all instances in model units.
     public var bounds: BoundingBox?
     public var triangleCount: Int
+    /// Printer, plates and slicing results from the slicer project.
+    public var project: PrintProject = PrintProject()
+
+    /// The part of the model that is on one plate (sizes and counts are recomputed).
+    public func onPlate(_ index: Int) -> ThreeMFModel {
+        var copy = self
+        copy.instances = instances.filter { $0.plate == index }
+        copy.bounds = ThreeMFReader.bounds(of: copy.instances)
+        copy.triangleCount = copy.instances.reduce(0) { $0 + $1.mesh.triangleCount }
+        copy.objectCount = project.plate(index)?.objectCount ?? copy.instances.count
+        return copy
+    }
 
     public func metadataValue(_ name: String) -> String? {
         metadata.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value

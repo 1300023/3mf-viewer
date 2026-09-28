@@ -121,3 +121,20 @@
 "The language will change after 3MF Viewer restarts." = "Язык сменится после перезапуска 3MF Viewer.";
 "Restart Now" = "Перезапустить";
 "Later" = "Позже";
+
+/* Plates and slicing */
+"Print Time" = "Время печати";
+"Print time" = "Время печати";
+"Plate" = "Стол";
+"Plate %lld" = "Стол %lld";
+"All" = "Все";
+"All plates (%lld)" = "Все столы (%lld)";
+"Printer" = "Принтер";
+"Nozzle" = "Сопло";
+"Layer height" = "Высота слоя";
+"Filament" = "Филамент";
+"Filament %lld" = "Филамент %lld";
+"Not sliced" = "Не нарезан";
+"Sliced plates: %lld of %lld" = "Нарезано столов: %lld из %lld";
+"There are no objects on this plate." = "На этом столе нет объектов.";
+"Print time: %@" = "Время печати: %@";

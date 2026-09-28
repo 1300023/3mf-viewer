@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ThreeMFKit
 
 /// Middle column: the models of the selected category (including its subcategories).
 struct ModelListView: View {
@@ -16,7 +17,9 @@ struct ModelListView: View {
             } else {
                 List(selection: $library.selection) {
                     ForEach(files) { file in
-                        FileRowView(file: file, showsFolder: showsFolder(of: file))
+                        FileRowView(file: file,
+                                    showsFolder: showsFolder(of: file),
+                                    printTime: library.sliceSummary(for: file)?.printTime)
                             .tag(file.id as String?)
                             .draggable(file.url)
                             .contextMenu { ModelContextMenu(file: file) }
@@ -142,6 +145,8 @@ struct MoveTargetsMenu: View {
 struct FileRowView: View {
     let file: ModelFileItem
     var showsFolder = true
+    /// Estimated print time of a sliced project.
+    var printTime: TimeInterval?
     @State private var thumbnail: NSImage?
     @State private var didLoad = false
 
@@ -171,10 +176,18 @@ struct FileRowView: View {
                 Text(file.displayName)
                     .lineLimit(2)
                     .truncationMode(.middle)
-                Text(details)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(details)
+                        .lineLimit(1)
+                    if let printTime {
+                        Label(PrintFormat.duration(printTime), systemImage: "clock")
+                            .labelStyle(CompactLabelStyle())
+                            .lineLimit(1)
+                            .help("Print time")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 if showsFolder, !file.relativeFolder.isEmpty {
                     Label(file.relativeFolder, systemImage: "folder")
                         .font(.caption2)
@@ -202,6 +215,16 @@ struct FileRowView: View {
         let size = ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file)
         let date = file.modified.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: AppLanguage.locale))
         return "\(size) · \(date)"
+    }
+}
+
+/// Icon and title close together (the default label style spaces them widely).
+private struct CompactLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 2) {
+            configuration.icon
+            configuration.title
+        }
     }
 }
 
