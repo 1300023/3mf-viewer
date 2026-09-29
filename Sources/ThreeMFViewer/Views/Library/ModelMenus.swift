@@ -11,6 +11,17 @@ struct ModelContextMenu: View {
     var body: some View {
         FileContextMenu(url: file.url)
         Divider()
+        if file.isFavorite {
+            Button("Remove from Favorites") { library.setFavorite(false, for: file) }
+        } else {
+            Button("Add to Favorites") { library.setFavorite(true, for: file) }
+        }
+        if file.isPrinted {
+            Button("Mark as Not Printed") { library.setPrinted(false, for: file) }
+        } else {
+            Button("Mark as Printed") { library.setPrinted(true, for: file) }
+        }
+        Divider()
         Menu("Move to") {
             MoveTargetsMenu(nodes: library.tree.filter(\.isAvailable), currentFolder: file.folderPath) { node in
                 library.move(file, to: node)

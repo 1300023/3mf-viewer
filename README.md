@@ -36,6 +36,11 @@ Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Open
 
 - **Collections with categories.** Add one or more folders as collections. Their subfolders are categories and subcategories of any depth, shown as a tree with model counts. Create, rename and delete categories, drag models between them or use **Move to**. Every change happens in the folders themselves, so the collection on disk always has the same structure as in the app, and changes made in Finder show up in the app right away.
 - **List or gallery.** "All Models" or any category (with its subcategories) as a list or as a gallery of large thumbnails with a size slider (arrow keys move the selection). Search, sorting by name, date, size or print time. Drop model files from Finder onto a category to copy them into its folder.
+- **Inbox.** New models in Downloads (or another folder you choose in Settings → Library) appear under **Inbox**; drag them onto a category to move them into the library.
+- **Favorites, "Printed", tags and notes.** Mark models from the context menu or the info panel, add your own tags and a note. They are stored as Finder tags and the Finder comment, so they show up in Finder and Spotlight too. Drop models on **Favorites**, **Printed** or a tag in the sidebar to mark them.
+- **Search inside the files and filters.** Search also looks in the title, author and description stored in the file. Filters: print time (up to 1 hour, 3 hours…), filament type, single colour or multicolour, sliced or not, fits the printer, printed, favorites.
+- **Will it fit my printer?** Choose your printer or enter the build volume in Settings → Printer. Models with a plate that is too big are marked with a red sign in the list, and the 3D view can show the build volume as a box (green — fits, red — too big).
+- **Ruler.** Turn on the ruler in the toolbar and click two points on the model to get the distance and Δx / Δy / Δz in mm.
 - **STL and OBJ too.** STL (binary and ASCII) and OBJ files live in the same collections, with rendered thumbnails and the 3D preview; OBJ material colours (`.mtl`) are shown, and an OBJ's own `.mtl` moves with it between categories.
 - **Find duplicates.** Identical files anywhere in your collections (compared by contents, not by name) are grouped; the copy without "(2)" / "copy" in its name is kept and the rest go to the Trash in one click.
 - **Author's photos and description.** Files from MakerWorld carry photos of the printed model, the description and the print profile notes — shown in the Photos and Description tabs.
@@ -151,12 +156,14 @@ Sources/ThreeMFKit/        model file parsing, no UI and no dependencies
   ThreeMFReader.swift        public API: load(url:), thumbnailData(url:), printProject(url:)
   ModelExtras.swift          author photos (Auxiliaries/) and description (HTML → text)
 Sources/ThreeMFLibrary/    collections on disk, no UI: scanner, file operations, filtering / sorting, duplicates, print cost,
-                           settings, FSEvents watcher
-Sources/ThreeMFRendering/  SceneKit scene, off-screen renderer, print data formatting (shared with Quick Look)
+                           settings, FSEvents watcher, Finder tags and notes (LibraryTags), build volume (BuildVolume),
+                           cached model details for search and filters (ModelDetails, LibraryFilters)
+Sources/ThreeMFRendering/  SceneKit scene, build volume and ruler overlays, off-screen renderer, print data formatting
+                           (shared with Quick Look)
 Sources/ThreeMFViewer/     the SwiftUI app
   Library/                   LibraryModel (window state), thumbnail cache
   Views/Library/             collections sidebar, model list and gallery, menus
-  Views/Detail/              3D view, info panel, plate picker
+  Views/Detail/              3D view, info panel, plate picker, tags and note, ruler
   Views/Common/              small shared views
 Sources/Extensions/        Quick Look preview (Space) and thumbnail (Finder icons) extensions
 Packaging/                 Info.plists, entitlements, icon, localizations for the bundles
@@ -174,7 +181,6 @@ For a signed and notarized build set `SIGN_IDENTITY="Developer ID Application: �
 
 ## Roadmap ideas
 
-- Tags and favourites
 - STEP files
 
 ## License

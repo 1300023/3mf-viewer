@@ -17,7 +17,21 @@ struct CollectionsSidebar: View {
                                 message: String(localized: "Add a folder with 3D models (.3mf, .stl, .obj) as a collection. Its subfolders become categories."))
             } else {
                 List(selection: $library.selectedCategoryID) {
-                    allModelsRow
+                    // Every row comes from a ForEach whose id is the selection value, like the category rows:
+                    // static rows with only a `.tag` could not be selected.
+                    Section {
+                        ForEach(shortcutRows) { item in
+                            shortcutRow(item)
+                        }
+                    }
+                    let tagRows = self.tagRows
+                    if !tagRows.isEmpty {
+                        Section("Tags") {
+                            ForEach(tagRows) { item in
+                                shortcutRow(item)
+                            }
+                        }
+                    }
                     Section("Collections") {
                         ForEach(library.sidebarRows) { row in
                             CategoryRowView(row: row,
@@ -61,16 +75,72 @@ struct CollectionsSidebar: View {
         }
     }
 
-    private var allModelsRow: some View {
-        HStack(spacing: 6) {
-            Label("All Models", systemImage: "square.grid.2x2")
-            Spacer(minLength: 4)
-            Text("\(library.totalModelCount)")
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+    /// A sidebar row that is not a folder: all models, the inbox, favourites, printed, a tag.
+    private struct ShortcutRow: Identifiable {
+        /// The selection value (`LibraryModel.allModelsID`, `inboxID`, a tag id…).
+        let id: String
+        let title: String
+        let systemImage: String
+        let count: Int
+        var help: String?
+    }
+
+    private var shortcutRows: [ShortcutRow] {
+        var rows = [ShortcutRow(id: LibraryModel.allModelsID, title: String(localized: "All Models"),
+                                systemImage: "square.grid.2x2", count: library.totalModelCount)]
+        if library.isInboxEnabled {
+            rows.append(ShortcutRow(id: LibraryModel.inboxID, title: String(localized: "Inbox"),
+                                    systemImage: "tray.and.arrow.down", count: library.inboxFiles.count,
+                                    help: library.inboxFolder?.path))
         }
-        .tag(LibraryModel.allModelsID as String?)
+        rows.append(ShortcutRow(id: LibraryModel.favoritesID, title: String(localized: "Favorites"),
+                                systemImage: "star", count: library.favoritesCount))
+        rows.append(ShortcutRow(id: LibraryModel.printedID, title: String(localized: "Printed"),
+                                systemImage: "checkmark.seal", count: library.printedCount))
+        return rows
+    }
+
+    private var tagRows: [ShortcutRow] {
+        library.tagCounts.map {
+            ShortcutRow(id: LibraryModel.tagID($0.tag), title: $0.tag, systemImage: "tag", count: $0.count)
+        }
+    }
+
+    private func shortcutRow(_ item: ShortcutRow) -> some View {
+        countRow(item.title, systemImage: item.systemImage, count: item.count)
+            .help(item.help ?? "")
+            // Dropping models on Favorites, Printed or a tag marks them.
+            .dropDestination(for: URL.self) { urls, _ in
+                markDropped(urls, on: item.id)
+            }
+            .tag(item.id as String?)
+    }
+
+    private func markDropped(_ urls: [URL], on id: String) -> Bool {
+        switch id {
+        case LibraryModel.favoritesID:
+            return library.mark(urls) { library.setFavorite(true, for: $0) }
+        case LibraryModel.printedID:
+            return library.mark(urls) { library.setPrinted(true, for: $0) }
+        case let id where id.hasPrefix(LibraryModel.tagPrefix):
+            let tag = String(id.dropFirst(LibraryModel.tagPrefix.count))
+            return library.mark(urls) { library.addTag(tag, to: $0) }
+        default:
+            return false
+        }
+    }
+
+    private func countRow(_ title: String, systemImage: String, count: Int) -> some View {
+        HStack(spacing: 6) {
+            Label(title, systemImage: systemImage)
+            Spacer(minLength: 4)
+            if count > 0 {
+                Text("\(count)")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var bottomBar: some View {

@@ -16,9 +16,12 @@ struct FileRowView: View {
                 .frame(width: 58, height: 58)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(file.displayName)
-                    .lineLimit(2)
-                    .truncationMode(.middle)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(file.displayName)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                    FileStatusBadges(file: file)
+                }
                 HStack(spacing: 6) {
                     Text(details)
                         .lineLimit(1)

@@ -113,6 +113,11 @@ private struct ModelTile: View {
         VStack(alignment: .leading, spacing: 4) {
             ModelThumbnail(file: file, cornerRadius: 10)
                 .aspectRatio(1, contentMode: .fit)
+                .overlay(alignment: .topTrailing) {
+                    FileStatusBadges(file: file)
+                        .shadow(color: .black.opacity(0.35), radius: 1.5)
+                        .padding(6)
+                }
             Text(file.displayName)
                 .font(.callout)
                 .lineLimit(2)

@@ -7,12 +7,16 @@ import ThreeMFRendering
 struct ModelDetailView: View {
     let file: ModelFileItem
 
+    @EnvironmentObject private var library: LibraryModel
     @StateObject private var loader = ModelLoader()
     @AppStorage("viewer.showColors") private var showColors = true
     @AppStorage("viewer.wireframe") private var wireframe = false
     @AppStorage("viewer.showPlate") private var showPlate = true
     @AppStorage("viewer.showInfo") private var showInfo = true
     @AppStorage("viewer.autoRotate") private var autoRotate = false
+    @AppStorage("viewer.showBuildVolume") private var showBuildVolume = false
+    @State private var isMeasuring = false
+    @State private var measurePoints: [SIMD3<Double>] = []
     @State private var resetToken = 0
     @State private var tab: DetailTab = .model
 
@@ -26,7 +30,12 @@ struct ModelDetailView: View {
             .navigationSubtitle(file.relativeFolder)
             .toolbar { toolbar }
             .task(id: file.id) {
+                measurePoints = []
                 await loader.load(file)
+            }
+            .onChange(of: loader.selectedPlate) { _ in measurePoints = [] }
+            .onChange(of: isMeasuring) { on in
+                if !on { measurePoints = [] }
             }
     }
 
@@ -114,8 +123,19 @@ struct ModelDetailView: View {
                                                     wireframe: wireframe,
                                                     showPlate: showPlate,
                                                     autoRotate: autoRotate),
-                             resetToken: resetToken)
+                             resetToken: resetToken,
+                             buildVolume: showBuildVolume ? outlinedVolume(for: loader.content?.model) : nil,
+                             fitsBuildVolume: fitsBuildVolume(loaded),
+                             measurePoints: isMeasuring ? measurePoints : [],
+                             onMeasureClick: isMeasuring ? addMeasurePoint : nil)
                     .ignoresSafeArea()
+                    .overlay(alignment: .bottomLeading) {
+                        if isMeasuring {
+                            RulerReadout(points: measurePoints)
+                                .padding(12)
+                                .padding(.bottom, loaded.project.plates.count > 1 ? 110 : 0)
+                        }
+                    }
             } else if let image = loader.content?.image {
                 VStack(spacing: 12) {
                     Image(nsImage: image)
@@ -147,6 +167,27 @@ struct ModelDetailView: View {
         }
     }
 
+    // MARK: - Build volume and ruler
+
+    /// The build volume box, turned 90° when the model only fits that way.
+    private func outlinedVolume(for model: ThreeMFModel?) -> SIMD3<Double> {
+        library.buildVolume.outline(for: model?.sizeInMillimeters)
+    }
+
+    private func fitsBuildVolume(_ loaded: LoadedModel) -> Bool {
+        // "All plates" of a multi-plate project: every plate has to fit on its own.
+        if loader.selectedPlate == nil, loaded.project.plates.count > 1 {
+            return library.fitsPrinter(file) ?? true
+        }
+        guard let size = loader.content?.model?.sizeInMillimeters else { return true }
+        return library.buildVolume.fits(size)
+    }
+
+    private func addMeasurePoint(_ point: SIMD3<Double>) {
+        if measurePoints.count >= 2 { measurePoints = [] }
+        measurePoints.append(point)
+    }
+
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
@@ -173,6 +214,16 @@ struct ModelDetailView: View {
             }
             .help("Show build plate grid")
 
+            Toggle(isOn: $showBuildVolume) {
+                Label("Build Volume", systemImage: "cube")
+            }
+            .help("Show the printer's build volume")
+
+            Toggle(isOn: $isMeasuring) {
+                Label("Ruler", systemImage: "ruler")
+            }
+            .help("Measure: click two points on the model")
+
             Toggle(isOn: $autoRotate) {
                 Label("Auto-Rotate", systemImage: "rotate.3d")
             }
@@ -192,5 +243,38 @@ struct ModelDetailView: View {
             }
             .help("Open in the default app (click) or choose another app (hold)")
         }
+    }
+}
+
+/// Distance between the two ruler points.
+private struct RulerReadout: View {
+    let points: [SIMD3<Double>]
+
+    var body: some View {
+        Group {
+            if points.count >= 2 {
+                let delta = points[1] - points[0]
+                let distance = (delta * delta).sum().squareRoot()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(format(distance)) \(String(localized: "mm"))")
+                        .font(.title3.monospacedDigit().weight(.semibold))
+                        .textSelection(.enabled)
+                    Text("Δx \(format(delta.x))  Δy \(format(delta.y))  Δz \(format(delta.z))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Label(points.isEmpty ? String(localized: "Click the first point on the model")
+                                     : String(localized: "Click the second point"),
+                      systemImage: "ruler")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func format(_ value: Double) -> String {
+        abs(value).formatted(.number.precision(.fractionLength(1)).locale(AppLanguage.locale))
     }
 }

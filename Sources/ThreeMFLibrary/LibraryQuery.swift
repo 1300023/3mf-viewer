@@ -12,28 +12,41 @@ public struct LibraryQuery: Sendable {
     public var category: CategoryNode?
     public var searchText: String
     public var sortOrder: FileSortOrder
+    public var filters: LibraryFilters
 
-    public init(category: CategoryNode? = nil, searchText: String = "", sortOrder: FileSortOrder = .name) {
+    public init(category: CategoryNode? = nil, searchText: String = "", sortOrder: FileSortOrder = .name,
+                filters: LibraryFilters = LibraryFilters()) {
         self.category = category
         self.searchText = searchText
         self.sortOrder = sortOrder
+        self.filters = filters
     }
 
-    /// Filters and sorts `files`. `printTime` supplies the estimated print time of sliced projects.
+    /// Filters and sorts `files`. `facts` supplies print times and model details for search and filters.
     public func apply(to files: [ModelFileItem],
-                      printTime: (ModelFileItem) -> TimeInterval? = { _ in nil }) -> [ModelFileItem] {
+                      facts: (ModelFileItem) -> FileFacts = { _ in FileFacts() }) -> [ModelFileItem] {
         var result = files
         if let category {
             result = result.filter { category.contains(path: $0.folderPath) }
         }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let needsFacts = !query.isEmpty || filters.isActive || sortOrder == .printTime
+        let factsByID = needsFacts
+            ? Dictionary(result.map { ($0.id, facts($0)) }, uniquingKeysWith: { first, _ in first })
+            : [:]
         if !query.isEmpty {
-            result = result.filter {
-                $0.url.lastPathComponent.localizedCaseInsensitiveContains(query)
-                    || $0.relativeFolder.localizedCaseInsensitiveContains(query)
+            // File name, category, tags, and the title, designer and description inside the file.
+            result = result.filter { file in
+                file.url.lastPathComponent.localizedCaseInsensitiveContains(query)
+                    || file.relativeFolder.localizedCaseInsensitiveContains(query)
+                    || file.tags.contains { $0.localizedCaseInsensitiveContains(query) }
+                    || factsByID[file.id]?.details?.matches(query) == true
             }
         }
-        return sorted(result, printTime: printTime)
+        if filters.isActive {
+            result = result.filter { file in filters.matches(file, factsByID[file.id] ?? FileFacts()) }
+        }
+        return sorted(result) { factsByID[$0.id]?.printTime }
     }
 
     private func sorted(_ files: [ModelFileItem], printTime: (ModelFileItem) -> TimeInterval?) -> [ModelFileItem] {

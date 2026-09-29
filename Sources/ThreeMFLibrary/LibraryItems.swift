@@ -10,14 +10,29 @@ public struct ModelFileItem: Identifiable, Hashable, Sendable {
     public let collectionPath: String
     /// Category path inside the collection ("" = collection root), e.g. "Kitchen/Hooks".
     public let relativeFolder: String
+    /// Finder tags of the file (favourites, "printed" and the user's own tags).
+    public let tags: [String]
 
-    public init(url: URL, size: Int64, modified: Date, collectionPath: String, relativeFolder: String) {
+    public init(url: URL, size: Int64, modified: Date, collectionPath: String, relativeFolder: String,
+                tags: [String] = []) {
         self.url = url
         self.size = size
         self.modified = modified
         self.collectionPath = collectionPath
         self.relativeFolder = relativeFolder
+        self.tags = tags
     }
+
+    /// The same file with other Finder tags.
+    public func withTags(_ tags: [String]) -> ModelFileItem {
+        ModelFileItem(url: url, size: size, modified: modified, collectionPath: collectionPath,
+                      relativeFolder: relativeFolder, tags: tags)
+    }
+
+    public var isFavorite: Bool { LibraryTags.isFavorite(tags) }
+    public var isPrinted: Bool { LibraryTags.isPrinted(tags) }
+    /// Tags other than the favourite / printed markers.
+    public var userTags: [String] { tags.filter { !LibraryTags.isSystemTag($0) } }
 
     public var id: String { url.path }
     public var folderPath: String { url.deletingLastPathComponent().path }

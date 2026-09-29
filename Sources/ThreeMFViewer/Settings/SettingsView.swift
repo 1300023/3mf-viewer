@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import ThreeMFLibrary
 
@@ -7,6 +8,10 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView()
                 .tabItem { Label("General", systemImage: "gearshape") }
+            LibrarySettingsView()
+                .tabItem { Label("Library", systemImage: "books.vertical") }
+            PrinterSettingsView()
+                .tabItem { Label("Printer", systemImage: "printer") }
             CostSettingsView()
                 .tabItem { Label("Print Cost", systemImage: "banknote") }
         }
@@ -101,6 +106,96 @@ struct CostSettingsView: View {
         Binding(
             get: { costs.settings.pricePerKg[type] ?? costs.settings.otherPricePerKg },
             set: { costs.settings.pricePerKg[type] = max(0, $0) }
+        )
+    }
+}
+
+/// "Library" tab: the Inbox folder.
+struct LibrarySettingsView: View {
+    @EnvironmentObject private var library: LibraryModel
+
+    var body: some View {
+        Form {
+            Toggle("Show Inbox", isOn: $library.isInboxEnabled)
+            HStack {
+                Text("Inbox folder")
+                Spacer()
+                Text(library.inboxFolder.map { FileManager.default.displayName(atPath: $0.path) } ?? "—")
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(library.inboxFolder?.path ?? "")
+                Button("Choose…", action: chooseFolder)
+            }
+            .disabled(!library.isInboxEnabled)
+            Text("New model files in this folder (and one level of subfolders) are listed in the Inbox. Drag them to a category to move them into the library.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(24)
+    }
+
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = library.inboxFolder
+        panel.prompt = String(localized: "Choose")
+        if panel.runModal() == .OK, let url = panel.url {
+            library.inboxFolder = url.standardizedFileURL
+        }
+    }
+}
+
+/// "Printer" tab: the build volume used for "fits the printer".
+struct PrinterSettingsView: View {
+    @EnvironmentObject private var library: LibraryModel
+    @AppStorage("viewer.showBuildVolume") private var showBuildVolume = false
+
+    var body: some View {
+        Form {
+            LabeledContent("Printer") {
+                Menu {
+                    ForEach(BuildVolume.presets) { preset in
+                        Button(preset.name) { library.buildVolume = preset.volume }
+                    }
+                } label: {
+                    Text(presetName ?? String(localized: "Custom"))
+                }
+                .fixedSize()
+            }
+
+            Section {
+                TextField("Width (X)", value: dimension(\.width), format: .number)
+                TextField("Depth (Y)", value: dimension(\.depth), format: .number)
+                TextField("Height (Z)", value: dimension(\.height), format: .number)
+            } header: {
+                Text("Build volume, mm")
+            }
+
+            Toggle("Show build volume in 3D", isOn: $showBuildVolume)
+
+            Text("Models with a plate larger than the build volume are marked in the list. A model that fits only when turned by 90° counts as fitting.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(24)
+    }
+
+    private var presetName: String? {
+        BuildVolume.presets.first { $0.volume == library.buildVolume }?.name
+    }
+
+    private func dimension(_ keyPath: WritableKeyPath<BuildVolume, Double>) -> Binding<Double> {
+        Binding(
+            get: { library.buildVolume[keyPath: keyPath] },
+            set: { value in
+                guard value > 0 else { return }
+                library.buildVolume[keyPath: keyPath] = min(value, 5000)
+            }
         )
     }
 }

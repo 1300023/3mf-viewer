@@ -35,6 +35,13 @@ extension FileSortOrder {
 @MainActor
 final class LibraryModel: ObservableObject {
     static let allModelsID = "::all-models"
+    static let inboxID = "::inbox"
+    static let favoritesID = "::favorites"
+    static let printedID = "::printed"
+    static let tagPrefix = "::tag:"
+    static func tagID(_ tag: String) -> String { tagPrefix + tag }
+    /// Sidebar rows that are not folders.
+    static func isSpecial(_ id: String) -> Bool { id.hasPrefix("::") }
 
     @Published private(set) var collections: [URL] = [] {
         didSet {
@@ -68,6 +75,35 @@ final class LibraryModel: ObservableObject {
     }
     /// Print time and weight of sliced projects, read in the background after each scan.
     @Published private(set) var sliceSummaries = SliceSummaryStore()
+    /// Titles, descriptions, filaments, colours and sizes, read in the background and cached on disk.
+    /// (Updated from `LibraryModel+Organize.swift`.)
+    @Published var modelDetails = ModelDetailsStore()
+    /// Filters of the model list.
+    @Published var filters = LibraryFilters()
+    /// Model details are still being read (filters may not show every match yet).
+    @Published var isReadingDetails = false
+
+    /// Model files in the inbox folder (new downloads).
+    @Published private(set) var inboxFiles: [ModelFileItem] = []
+    @Published var isInboxEnabled: Bool {
+        didSet {
+            preferences.isInboxEnabled = isInboxEnabled
+            if !isInboxEnabled, selectedCategoryID == Self.inboxID { selectedCategoryID = Self.allModelsID }
+            startWatching()
+            refresh()
+        }
+    }
+    @Published var inboxFolder: URL? {
+        didSet {
+            preferences.inboxFolder = inboxFolder
+            startWatching()
+            refresh()
+        }
+    }
+    /// The printer's build volume for "fits the printer".
+    @Published var buildVolume: BuildVolume {
+        didSet { preferences.buildVolume = buildVolume }
+    }
     @Published var namePrompt: NamePrompt? {
         didSet {
             guard namePrompt?.id != oldValue?.id else { return }
@@ -88,6 +124,10 @@ final class LibraryModel: ObservableObject {
     private var scanTask: Task<Void, Never>?
     private var debounceTask: Task<Void, Never>?
     private var summaryTask: Task<Void, Never>?
+    var detailsTask: Task<Void, Never>?
+    let detailsCacheURL: URL? = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+        .appendingPathComponent(Bundle.main.bundleIdentifier ?? "ThreeMFViewer", isDirectory: true)
+        .appendingPathComponent("model-details.json")
     /// Selected once the next scan finds it (a file that was just moved, copied or opened).
     private var pendingSelection: String?
     private var watcher: FolderWatcher?
@@ -97,6 +137,10 @@ final class LibraryModel: ObservableObject {
         self.fileService = fileService
         sortOrder = preferences.sortOrder
         expanded = preferences.expandedCategories
+        isInboxEnabled = preferences.isInboxEnabled
+        _inboxFolder = Published(initialValue: preferences.inboxFolder)
+        buildVolume = preferences.buildVolume
+        if let detailsCacheURL { modelDetails = ModelDetailsStore.load(from: detailsCacheURL) }
         selectedCategoryID = preferences.selectedCategory ?? Self.allModelsID
 
         var collections = preferences.collections
@@ -124,21 +168,57 @@ final class LibraryModel: ObservableObject {
         selectedCategoryID.flatMap { snapshot.index[$0] }
     }
 
-    /// Models of the selected category (including its subcategories), filtered and sorted.
+    /// Models of the selected row (a category with its subcategories, the inbox, favourites, a tag…),
+    /// searched, filtered and sorted.
     var visibleFiles: [ModelFileItem] {
-        LibraryQuery(category: selectedCategory, searchText: searchText, sortOrder: sortOrder)
-            .apply(to: files) { [sliceSummaries] in sliceSummaries.summary(for: $0)?.printTime }
+        var category: CategoryNode?
+        let base: [ModelFileItem]
+        switch selectedCategoryID {
+        case Self.inboxID?:
+            base = inboxFiles
+        case Self.favoritesID?:
+            base = allFiles.filter(\.isFavorite)
+        case Self.printedID?:
+            base = allFiles.filter(\.isPrinted)
+        case let id? where id.hasPrefix(Self.tagPrefix):
+            let tag = String(id.dropFirst(Self.tagPrefix.count))
+            base = allFiles.filter { $0.tags.contains(tag) }
+        default:
+            base = files
+            category = selectedCategory
+        }
+        return LibraryQuery(category: category, searchText: searchText, sortOrder: sortOrder, filters: filters)
+            .apply(to: base) { facts(for: $0) }
+    }
+
+    /// Library models plus the inbox models that are not inside a collection.
+    var allFiles: [ModelFileItem] {
+        guard !inboxFiles.isEmpty else { return files }
+        let known = Set(files.map(\.id))
+        return files + inboxFiles.filter { !known.contains($0.id) }
     }
 
     var selectedFile: ModelFileItem? {
         guard let selection else { return nil }
-        return files.first { $0.id == selection }
+        return files.first { $0.id == selection } ?? inboxFiles.first { $0.id == selection }
     }
 
     /// The folder new models go to: the selected category, or the first collection.
     var importTarget: CategoryNode? {
         if let category = selectedCategory, category.isAvailable { return category }
         return tree.first { $0.isAvailable }
+    }
+
+    /// Shows changed Finder tags right away, without waiting for a rescan of every collection.
+    func applyTagsLocally(_ tags: [String], to id: String) {
+        if let index = snapshot.files.firstIndex(where: { $0.id == id }) {
+            var files = snapshot.files
+            files[index] = files[index].withTags(tags)
+            snapshot = LibrarySnapshot(tree: snapshot.tree, files: files)
+        }
+        if let index = inboxFiles.firstIndex(where: { $0.id == id }) {
+            inboxFiles[index] = inboxFiles[index].withTags(tags)
+        }
     }
 
     func sliceSummary(for file: ModelFileItem) -> SliceSummary? {
@@ -237,7 +317,8 @@ final class LibraryModel: ObservableObject {
         var importedModel: URL?
         let ok = perform {
             for url in items {
-                let isMove = collectionRoot(containing: url) != nil
+                // Files are moved out of collections and out of the inbox, and copied from anywhere else.
+                let isMove = collectionRoot(containing: url) != nil || isInInbox(url)
                 let destination = try fileService.transfer(url, into: folder, move: isMove)
                 if fileService.isDirectory(destination) {
                     if isMove { remapPaths(from: url.path, to: destination.path) }
@@ -330,11 +411,13 @@ final class LibraryModel: ObservableObject {
         scanTask?.cancel()
         isScanning = true
         let roots = collections
+        let inbox = isInboxEnabled ? inboxFolder : nil
         scanTask = Task { [weak self] in
-            let snapshot = await Task.detached(priority: .userInitiated) {
-                LibraryScanner.scan(roots: roots)
+            let (snapshot, inboxFiles) = await Task.detached(priority: .userInitiated) {
+                (LibraryScanner.scan(roots: roots), inbox.map { LibraryScanner.scanInbox($0) } ?? [])
             }.value
             guard let self, !Task.isCancelled else { return }
+            self.inboxFiles = inboxFiles
             self.apply(snapshot)
         }
     }
@@ -344,22 +427,27 @@ final class LibraryModel: ObservableObject {
         isScanning = false
         didScanOnce = true
 
-        if let selected = selectedCategoryID, selected != Self.allModelsID, snapshot.index[selected] == nil {
+        if let selected = selectedCategoryID, !Self.isSpecial(selected), snapshot.index[selected] == nil {
             selectedCategoryID = Self.allModelsID
         }
-        if let pending = pendingSelection, files.contains(where: { $0.id == pending }) {
+        if selectedCategoryID == Self.inboxID, !isInboxEnabled {
+            selectedCategoryID = Self.allModelsID
+        }
+        let known = Set((files + inboxFiles).map(\.id))
+        if let pending = pendingSelection, known.contains(pending) {
             selection = pending
         }
         pendingSelection = nil
-        if let selected = selection, !files.contains(where: { $0.id == selected }) {
+        if let selected = selection, !known.contains(selected) {
             selection = nil
         }
         loadSliceSummaries()
+        loadModelDetails()
     }
 
     /// Reads `slice_info.config` of new or changed files in the background, in small batches.
     private func loadSliceSummaries() {
-        let pending = sliceSummaries.filesNeedingUpdate(files)
+        let pending = sliceSummaries.filesNeedingUpdate(files + inboxFiles)
         guard !pending.isEmpty else { return }
         summaryTask?.cancel()
         summaryTask = Task { [weak self] in
@@ -437,7 +525,9 @@ final class LibraryModel: ObservableObject {
     }
 
     private func startWatching() {
-        watcher = FolderWatcher(paths: collections.map(\.path)) { [weak self] in
+        var paths = collections.map(\.path)
+        if isInboxEnabled, let inboxFolder { paths.append(inboxFolder.path) }
+        watcher = FolderWatcher(paths: paths) { [weak self] in
             Task { @MainActor in self?.scheduleRefresh() }
         }
     }

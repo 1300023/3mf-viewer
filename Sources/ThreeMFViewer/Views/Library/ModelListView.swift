@@ -7,6 +7,7 @@ import ThreeMFLibrary
 struct ModelListView: View {
     @EnvironmentObject private var library: LibraryModel
     @State private var isDropTargeted = false
+    @State private var isShowingFilters = false
     @AppStorage("library.viewMode") private var viewMode = LibraryViewMode.list
     @AppStorage("library.tileSize") private var tileSize = 150.0
 
@@ -56,11 +57,30 @@ struct ModelListView: View {
                     .font(.headline)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text("Models: \(count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text("Models: \(count)")
+                    if library.filters.isActive {
+                        Button("Reset Filters") { library.filters = LibraryFilters() }
+                            .buttonStyle(.link)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
+            Button {
+                isShowingFilters.toggle()
+            } label: {
+                Image(systemName: library.filters.isActive
+                      ? "line.3.horizontal.decrease.circle.fill"
+                      : "line.3.horizontal.decrease.circle")
+                    .foregroundStyle(library.filters.isActive ? Color.accentColor : Color.primary)
+            }
+            .buttonStyle(.borderless)
+            .help("Filters")
+            .popover(isPresented: $isShowingFilters, arrowEdge: .bottom) {
+                FiltersView().environmentObject(library)
+            }
             Picker("View", selection: $viewMode) {
                 Image(systemName: "list.bullet").help("List").tag(LibraryViewMode.list)
                 Image(systemName: "square.grid.2x2").help("Gallery").tag(LibraryViewMode.grid)
@@ -113,9 +133,7 @@ struct ModelListView: View {
         .background(.bar)
     }
 
-    private var title: String {
-        library.selectedCategory?.name ?? String(localized: "All Models")
-    }
+    private var title: String { library.selectionTitle }
 
     /// The row shows the category path when models from several folders are listed.
     private func showsFolder(of file: ModelFileItem) -> Bool {
@@ -127,8 +145,19 @@ struct ModelListView: View {
     private var emptyState: some View {
         if !library.didScanOnce || library.isScanning && library.files.isEmpty {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if !library.searchText.isEmpty {
-            PlaceholderView(systemImage: "magnifyingglass", title: "No results")
+        } else if !library.searchText.isEmpty || library.filters.isActive {
+            PlaceholderView(systemImage: "magnifyingglass", title: "No results",
+                            message: library.filters.isActive && library.isReadingDetails
+                                ? String(localized: "Some filters need data that is still being read from the files.")
+                                : nil)
+        } else if library.selectedCategoryID == LibraryModel.inboxID {
+            PlaceholderView(systemImage: "tray.and.arrow.down",
+                            title: "No new models",
+                            message: String(localized: "Models downloaded to \(library.inboxFolder?.lastPathComponent ?? "") appear here. Drag them to a category to sort them."))
+        } else if let id = library.selectedCategoryID, LibraryModel.isSpecial(id), id != LibraryModel.allModelsID {
+            PlaceholderView(systemImage: "tag",
+                            title: "Nothing here yet",
+                            message: String(localized: "Mark models as favorite or printed, or add tags, in their context menu or info panel."))
         } else {
             PlaceholderView(systemImage: "tray",
                             title: "This category is empty",

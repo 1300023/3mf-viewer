@@ -113,7 +113,7 @@ final class ThreeMFLibraryTests: XCTestCase {
 
         // Shortest print first, never sliced last (by name).
         let times: [String: TimeInterval] = [c.id: 60, a.id: 3600]
-        let byTime = LibraryQuery(sortOrder: .printTime).apply(to: files) { times[$0.id] }
+        let byTime = LibraryQuery(sortOrder: .printTime).apply(to: files) { FileFacts(printTime: times[$0.id]) }
         XCTAssertEqual(byTime.map(\.displayName), ["B", "A 10", "A 9"])
     }
 
@@ -244,6 +244,112 @@ final class ThreeMFLibraryTests: XCTestCase {
 
         XCTAssertEqual(PrintCostSettings.defaults(currencyCode: "RUB").pricePerKg["PLA"], 1500)
         XCTAssertEqual(PrintCostSettings.defaults(currencyCode: "EUR").pricePerKg["PLA"], 20)
+    }
+
+    // MARK: - Tags, notes, filters, build volume
+
+    func testFinderTagsAndNotes() throws {
+        let url = try makeFile("C/Hook.3mf")
+        XCTAssertEqual(LibraryTags.tags(of: url), [])
+
+        var tags = LibraryTags.setting(LibraryTags.favoriteNames, on: true, name: "Favorite", in: [])
+        tags = LibraryTags.adding("  Kitchen ", to: tags)
+        tags = LibraryTags.adding("kitchen", to: tags)   // case-insensitive duplicate
+        try LibraryTags.setTags(tags, for: url)
+        XCTAssertEqual(Set(LibraryTags.tags(of: url)), ["Favorite", "Kitchen"])
+
+        let scanned = try XCTUnwrap(LibraryScanner.scan(roots: [root.appendingPathComponent("C")]).files.first)
+        XCTAssertTrue(scanned.isFavorite)
+        XCTAssertFalse(scanned.isPrinted)
+        XCTAssertEqual(scanned.userTags, ["Kitchen"])
+
+        let unfavorited = LibraryTags.setting(LibraryTags.favoriteNames, on: false, name: "Favorite", in: ["Избранное", "A"])
+        XCTAssertEqual(unfavorited, ["A"])
+
+        XCTAssertNil(LibraryTags.note(of: url))
+        try LibraryTags.setNote("PETG, 0.2, no supports", for: url)
+        XCTAssertEqual(LibraryTags.note(of: url), "PETG, 0.2, no supports")
+        try LibraryTags.setNote("  ", for: url)
+        XCTAssertNil(LibraryTags.note(of: url))
+        try LibraryTags.setNote(nil, for: url)   // removing a missing note is fine
+    }
+
+    func testInboxScanGoesOneLevelDeep() throws {
+        let inbox = try makeFolder("Downloads")
+        try makeFile("Downloads/New.3mf")
+        try makeFile("Downloads/Pack/Part.stl")
+        try makeFile("Downloads/Pack/Deeper/Hidden.3mf")
+        try makeFile("Downloads/readme.pdf")
+        let files = LibraryScanner.scanInbox(inbox)
+        XCTAssertEqual(Set(files.map(\.displayName)), ["New", "Part"])
+    }
+
+    func testBuildVolumeFit() {
+        let bed = BuildVolume(width: 250, depth: 210, height: 220)
+        XCTAssertTrue(bed.fits(SIMD3(240, 200, 100)))
+        XCTAssertTrue(bed.fits(SIMD3(200, 240, 100)))    // turned by 90°
+        XCTAssertFalse(bed.fits(SIMD3(240, 240, 100)))
+        XCTAssertFalse(bed.fits(SIMD3(100, 100, 230)))
+        XCTAssertNil(bed.fits(plateSizes: []))
+        XCTAssertEqual(bed.fits(plateSizes: [SIMD3(10, 10, 10), SIMD3(300, 10, 10)]), false)
+        // The outline turns only for a part that fits only when turned.
+        XCTAssertEqual(bed.outline(for: SIMD3(240, 200, 100)), SIMD3(250, 210, 220))
+        XCTAssertEqual(bed.outline(for: SIMD3(200, 240, 100)), SIMD3(210, 250, 220))
+        XCTAssertEqual(bed.outline(for: SIMD3(300, 300, 100)), SIMD3(250, 210, 220))
+        XCTAssertEqual(bed.outline(for: nil), SIMD3(250, 210, 220))
+        XCTAssertEqual(Set(BuildVolume.presets.map(\.id)).count, BuildVolume.presets.count)
+    }
+
+    func testFiltersAndSearchInDetails() {
+        let hook = item("Hook.3mf"), vase = item("Vase.3mf"), big = item("Big.3mf"), raw = item("Raw.stl")
+        let facts: [String: FileFacts] = [
+            hook.id: FileFacts(printTime: 1800,
+                               details: ModelDetails(title: "Wall hook", designer: "Kong 3D", filamentTypes: ["PLA"], colorCount: 1),
+                               fits: true),
+            vase.id: FileFacts(printTime: 5 * 3600,
+                               details: ModelDetails(descriptionText: "Spiral vase mode", filamentTypes: ["PETG", "PLA"], colorCount: 3),
+                               fits: true),
+            big.id: FileFacts(printTime: 10 * 3600, details: ModelDetails(colorCount: 1), fits: false),
+            raw.id: FileFacts(details: ModelDetails(colorCount: 1, plateSizes: [[10, 10, 10]]), fits: true),
+        ]
+        let files = [hook, vase, big, raw]
+        func names(_ configure: (inout LibraryQuery) -> Void) -> [String] {
+            var query = LibraryQuery()
+            configure(&query)
+            return query.apply(to: files) { facts[$0.id] ?? FileFacts() }.map(\.displayName)
+        }
+
+        XCTAssertEqual(names { $0.searchText = "kong" }, ["Hook"])
+        XCTAssertEqual(names { $0.searchText = "SPIRAL" }, ["Vase"])
+        XCTAssertEqual(names { $0.filters.printTime = .upTo1h }, ["Hook"])
+        XCTAssertEqual(names { $0.filters.printTime = .over8h }, ["Big"])
+        XCTAssertEqual(names { $0.filters.slicing = .notSliced }, ["Raw"])
+        XCTAssertEqual(names { $0.filters.filamentType = "PETG" }, ["Vase"])
+        XCTAssertEqual(names { $0.filters.colors = .multi }, ["Vase"])
+        XCTAssertEqual(names { $0.filters.fit = .tooBig }, ["Big"])
+        XCTAssertEqual(names {
+            $0.filters.fit = .fits
+            $0.filters.colors = .single
+        }, ["Hook", "Raw"])
+
+        var filters = LibraryFilters()
+        XCTAssertEqual(filters.activeCount, 0)
+        filters.favoritesOnly = true
+        filters.filamentType = "PLA"
+        XCTAssertEqual(filters.activeCount, 2)
+    }
+
+    func testDetailsStoreRoundTrip() throws {
+        let file = item("A.3mf", size: 5, modified: 10)
+        var store = ModelDetailsStore()
+        store.store([ModelDetailsStore.Entry(fileID: file.id, cacheKey: file.cacheKey,
+                                             details: ModelDetails(title: "A", filamentTypes: ["PLA"], colorCount: 2))])
+        let cache = root.appendingPathComponent("cache/details.json")
+        store.save(to: cache)
+        let loaded = ModelDetailsStore.load(from: cache)
+        XCTAssertEqual(loaded.details(for: file)?.title, "A")
+        XCTAssertEqual(loaded.details(for: file)?.colorCount, 2)
+        XCTAssertNil(loaded.details(for: item("A.3mf", size: 6, modified: 10)))
     }
 
     // MARK: - Preferences & summaries

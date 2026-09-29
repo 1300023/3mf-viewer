@@ -34,6 +34,11 @@ public final class ViewerScene: @unchecked Sendable {
     private let turntableNode = SCNNode()
     private let worldNode = SCNNode()
     private let modelContainer = SCNNode()
+
+    /// Millimetre space with the model centred in x / y and standing on z = 0 (Z up), for overlays.
+    var plateSpaceNode: SCNNode { worldNode }
+    /// Parent of the model meshes.
+    var modelRootNode: SCNNode { modelContainer }
     private var plateNode: SCNNode?
     private var modelNodes: [(node: SCNNode, colored: SCNGeometry)] = []
     private var plainGeometries: [ObjectIdentifier: SCNGeometry] = [:]

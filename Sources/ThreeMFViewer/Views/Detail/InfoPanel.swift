@@ -69,6 +69,11 @@ struct InfoPanel: View {
                     }
                 }
             }
+
+            Group {
+                Divider()
+                OrganizeSection(file: file)
+            }
         }
         .font(.callout)
         .padding(12)

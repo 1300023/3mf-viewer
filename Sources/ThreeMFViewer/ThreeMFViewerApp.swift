@@ -59,6 +59,7 @@ struct ThreeMFViewerApp: App {
         Settings {
             SettingsView()
                 .environmentObject(costs)
+                .environmentObject(library)
                 .environment(\.locale, AppLanguage.locale)
         }
     }

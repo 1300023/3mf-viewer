@@ -29,6 +29,11 @@ public struct ModelExtras: Sendable {
 }
 
 extension ThreeMFReader {
+    /// Readable text from the HTML that slicers and MakerWorld store in metadata such as "Description".
+    public static func plainText(fromHTML html: String) -> String {
+        HTMLText.plainText(html)
+    }
+
     /// Photos from `Auxiliaries/` and the texts from `metadata` (`ThreeMFModel.metadata`).
     public static func extras(url: URL, metadata: [MetadataEntry]) throws -> ModelExtras {
         try extras(archive: ZipArchive(url: url), metadata: metadata)
