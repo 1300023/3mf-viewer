@@ -186,6 +186,66 @@ final class ThreeMFLibraryTests: XCTestCase {
         XCTAssertEqual(item("readme.txt").displayName, "readme.txt")
     }
 
+    // MARK: - Duplicates
+
+    func testDuplicateFinderGroupsIdenticalFiles() throws {
+        let collection = try makeFolder("C")
+        try makeFile("C/Hook.3mf", contents: "same")
+        try makeFile("C/Hook(2).3mf", contents: "same")
+        try makeFile("C/Other/Hook — копия.3mf", contents: "same")
+        try makeFile("C/Different.3mf", contents: "diff")   // same size, other contents
+        try makeFile("C/Big.3mf", contents: "unique contents")
+
+        let files = LibraryScanner.scan(roots: [collection]).files
+        var lastProgress = 0.0
+        let groups = DuplicateFinder.find(in: files) { lastProgress = $0 }
+
+        XCTAssertEqual(groups.count, 1)
+        let group = try XCTUnwrap(groups.first)
+        XCTAssertEqual(group.files.count, 3)
+        XCTAssertEqual(group.suggestedKeeper.displayName, "Hook")
+        XCTAssertEqual(group.redundantBytes, 8)
+        XCTAssertEqual(lastProgress, 1, accuracy: 1e-9)
+    }
+
+    func testCopyNames() {
+        XCTAssertTrue(DuplicateFinder.looksLikeCopy("Hook(2)"))
+        XCTAssertTrue(DuplicateFinder.looksLikeCopy("Hook (3)"))
+        XCTAssertTrue(DuplicateFinder.looksLikeCopy("Board\u{00A0}— копия"))
+        XCTAssertTrue(DuplicateFinder.looksLikeCopy("Board copy 2"))
+        XCTAssertFalse(DuplicateFinder.looksLikeCopy("Seed_Spacer_2025-Nov-09"))
+        XCTAssertFalse(DuplicateFinder.looksLikeCopy("装配体2"))
+
+        // Without copy markers the oldest file is kept.
+        let old = item("B.3mf", modified: 100), new = item("A.3mf", modified: 200)
+        XCTAssertTrue(DuplicateFinder.keepOrder(old, new))
+    }
+
+    // MARK: - Cost
+
+    func testPrintCost() throws {
+        var settings = PrintCostSettings(currencyCode: "RUB", pricePerKg: ["PLA": 1500, "PETG": 2000],
+                                         otherPricePerKg: 1000, hourlyRate: 20)
+        XCTAssertEqual(settings.pricePerKg(forType: "pla"), 1500)
+        XCTAssertEqual(settings.pricePerKg(forType: "PLA-CF"), 1500)   // variant → base type
+        XCTAssertEqual(settings.pricePerKg(forType: "PETG HF"), 2000)
+        XCTAssertEqual(settings.pricePerKg(forType: "TPU"), 1000)
+        XCTAssertEqual(settings.pricePerKg(forType: nil), 1000)
+
+        let cost = try XCTUnwrap(PrintCostCalculator.cost(filamentGrams: ["PLA": 100, "PETG": 50, "": 10],
+                                                          printTime: 5400, settings: settings))
+        XCTAssertEqual(cost.material, 150 + 100 + 10, accuracy: 1e-9)
+        XCTAssertEqual(cost.machine, 30, accuracy: 1e-9)
+        XCTAssertEqual(cost.total, 290, accuracy: 1e-9)
+
+        settings.hourlyRate = 0
+        XCTAssertEqual(PrintCostCalculator.cost(filamentGrams: [:], printTime: 3600, settings: settings)?.total, 0)
+        XCTAssertNil(PrintCostCalculator.cost(filamentGrams: [:], printTime: nil, settings: settings))
+
+        XCTAssertEqual(PrintCostSettings.defaults(currencyCode: "RUB").pricePerKg["PLA"], 1500)
+        XCTAssertEqual(PrintCostSettings.defaults(currencyCode: "EUR").pricePerKg["PLA"], 20)
+    }
+
     // MARK: - Preferences & summaries
 
     func testPreferencesRoundTrip() throws {

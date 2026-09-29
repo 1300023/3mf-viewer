@@ -11,6 +11,17 @@ struct LoadedModel {
     let project: PrintProject
     /// Embedded preview, shown when there is nothing to render.
     let previewImage: NSImage?
+    /// Photos and description published by the model's author.
+    let extras: ModelExtras
+    /// `extras.photos`, decoded.
+    let photos: [LoadedPhoto]
+}
+
+struct LoadedPhoto: Identifiable {
+    let photo: ModelPhoto
+    let image: NSImage?
+
+    var id: String { photo.id }
 }
 
 /// What the detail view shows for the selected plate (or for all plates).
@@ -63,7 +74,12 @@ final class ModelLoader: ObservableObject {
             let preview = isThreeMF
                 ? (try? ThreeMFReader.thumbnailData(url: url)).flatMap { NSImage(data: $0) }
                 : nil
-            let loaded = LoadedModel(model: model, project: project, previewImage: preview)
+            let extras = isThreeMF
+                ? (try? ThreeMFReader.extras(url: url, metadata: model?.metadata ?? [])) ?? ModelExtras()
+                : ModelExtras()
+            let photos = extras.photos.map { LoadedPhoto(photo: $0, image: NSImage(data: $0.data)) }
+            let loaded = LoadedModel(model: model, project: project, previewImage: preview,
+                                     extras: extras, photos: photos)
             // Multi-plate projects open on their first plate: all plates side by side are tiny.
             if let model, model.triangleCount > 0, project.plates.count > 1, let first = project.plates.first {
                 let plateModel = model.onPlate(first.index)

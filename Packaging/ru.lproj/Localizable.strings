@@ -151,3 +151,40 @@
 "Thumbnail size" = "Размер миниатюр";
 "Format" = "Формат";
 "The name is not valid." = "Недопустимое имя.";
+
+/* Duplicates */
+"Duplicates" = "Дубликаты";
+"Find Duplicates…" = "Найти дубликаты…";
+"Comparing files…" = "Сравниваю файлы…";
+"Looking for identical files…" = "Ищу одинаковые файлы…";
+"No duplicates" = "Дубликатов нет";
+"Every model file in your collections is unique." = "Все файлы моделей в коллекциях уникальны.";
+"Extra copies: %lld · %@ can be freed" = "Лишних копий: %lld · можно освободить %@";
+"Keep One" = "Оставить один";
+"Move the other copies to the Trash" = "Переместить остальные копии в корзину";
+"Move All Extra Copies to Trash" = "Переместить все лишние копии в корзину";
+"Keep this copy" = "Оставить эту копию";
+"Keep" = "Оставить";
+"To Trash" = "В корзину";
+"Done" = "Готово";
+
+/* Author photos and description */
+"Photos (%lld)" = "Фото (%lld)";
+"Description" = "Описание";
+"Can't show this image" = "Не удаётся показать изображение";
+"Print profile" = "Профиль печати";
+
+/* Print cost */
+"General" = "Основные";
+"Print Cost" = "Себестоимость";
+"Show print cost" = "Показывать себестоимость печати";
+"Currency" = "Валюта";
+"Filament price per kg" = "Цена филамента за кг";
+"Other types" = "Другие типы";
+"Printer cost per hour" = "Стоимость часа работы принтера";
+"Cost = filament used × price per kg + print time × printer cost per hour. Filament variants such as PLA-CF use the base price." = "Себестоимость = расход филамента × цена за кг + время печати × стоимость часа работы принтера. Для разновидностей вроде PLA-CF берётся цена базового типа.";
+"Restore Defaults" = "Вернуть значения по умолчанию";
+"Cost" = "Себестоимость";
+"Filament cost" = "Стоимость филамента";
+"Filament %@ + printer %@" = "Филамент %@ + принтер %@";
+"Estimated print cost" = "Примерная себестоимость печати";

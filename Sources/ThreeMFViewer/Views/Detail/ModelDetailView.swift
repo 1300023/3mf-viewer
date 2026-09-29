@@ -14,6 +14,11 @@ struct ModelDetailView: View {
     @AppStorage("viewer.showInfo") private var showInfo = true
     @AppStorage("viewer.autoRotate") private var autoRotate = false
     @State private var resetToken = 0
+    @State private var tab: DetailTab = .model
+
+    enum DetailTab: Hashable {
+        case model, photos, description
+    }
 
     var body: some View {
         content
@@ -36,32 +41,66 @@ struct ModelDetailView: View {
                             title: "Couldn't open the file",
                             message: message)
         case .loaded(let loaded):
-            ZStack(alignment: .topTrailing) {
-                plateView(loaded)
-
-                if showInfo {
-                    let panel = InfoPanel(file: file,
-                                          model: loader.content?.model ?? loaded.model,
-                                          project: loaded.project,
-                                          plate: loader.selectedPlate)
-                    // Scrolls when the window is too low for all the rows.
-                    ViewThatFits(in: .vertical) {
-                        panel
-                        ScrollView(.vertical) { panel }
-                            .frame(width: 280)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                    .padding(12)
-                    .padding(.bottom, loaded.project.plates.count > 1 ? 110 : 0)
+            VStack(spacing: 0) {
+                if !loaded.extras.isEmpty {
+                    tabPicker(loaded)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                }
+                switch tab {
+                case .photos where !loaded.photos.isEmpty:
+                    PhotoGalleryView(photos: loaded.photos)
+                case .description where loaded.extras.hasDescription:
+                    ModelDescriptionView(model: loaded.model, extras: loaded.extras)
+                default:
+                    modelView(loaded)
                 }
             }
-            .overlay(alignment: .bottom) {
-                if loaded.project.plates.count > 1 {
-                    PlateStrip(project: loaded.project, selection: loader.selectedPlate) { plate in
-                        loader.select(plate: plate)
-                    }
-                    .padding(12)
+        }
+    }
+
+    private func tabPicker(_ loaded: LoadedModel) -> some View {
+        Picker("View", selection: $tab) {
+            Text("3D").tag(DetailTab.model)
+            if !loaded.photos.isEmpty {
+                Text("Photos (\(loaded.photos.count))").tag(DetailTab.photos)
+            }
+            if loaded.extras.hasDescription {
+                Text("Description").tag(DetailTab.description)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private func modelView(_ loaded: LoadedModel) -> some View {
+        ZStack(alignment: .topTrailing) {
+            plateView(loaded)
+
+            if showInfo {
+                let panel = InfoPanel(file: file,
+                                      model: loader.content?.model ?? loaded.model,
+                                      project: loaded.project,
+                                      plate: loader.selectedPlate)
+                // Scrolls when the window is too low for all the rows.
+                ViewThatFits(in: .vertical) {
+                    panel
+                    ScrollView(.vertical) { panel }
+                        .frame(width: 280)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
+                .padding(12)
+                .padding(.bottom, loaded.project.plates.count > 1 ? 110 : 0)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if loaded.project.plates.count > 1 {
+                PlateStrip(project: loaded.project, selection: loader.selectedPlate) { plate in
+                    loader.select(plate: plate)
+                }
+                .padding(12)
             }
         }
     }

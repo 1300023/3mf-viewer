@@ -15,12 +15,14 @@ enum Launcher {
 struct ThreeMFViewerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryModel()
+    @StateObject private var costs = PrintCostStore()
     @AppStorage(AppLanguage.defaultsKey) private var language = AppLanguage.english.rawValue
 
     var body: some Scene {
         Window("3MF Viewer", id: "main") {
             ContentView()
                 .environmentObject(library)
+                .environmentObject(costs)
                 .frame(minWidth: 980, minHeight: 560)
                 .environment(\.locale, AppLanguage.locale)
                 .onAppear { appDelegate.attach(library) }
@@ -41,6 +43,9 @@ struct ThreeMFViewerApp: App {
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("Refresh") { library.refresh() }
                     .keyboardShortcut("r", modifiers: .command)
+                Button("Find Duplicates…") { library.isShowingDuplicates = true }
+                    .keyboardShortcut("d", modifiers: [.command, .shift])
+                    .disabled(library.files.isEmpty)
             }
             CommandGroup(after: .newItem) {
                 Divider()
@@ -53,6 +58,7 @@ struct ThreeMFViewerApp: App {
 
         Settings {
             SettingsView()
+                .environmentObject(costs)
                 .environment(\.locale, AppLanguage.locale)
         }
     }

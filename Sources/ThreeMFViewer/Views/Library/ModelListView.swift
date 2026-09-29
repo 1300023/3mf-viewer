@@ -25,7 +25,7 @@ struct ModelListView: View {
                     ForEach(files) { file in
                         FileRowView(file: file,
                                     showsFolder: showsFolder(of: file),
-                                    printTime: library.sliceSummary(for: file)?.printTime)
+                                    summary: library.sliceSummary(for: file))
                             .tag(file.id as String?)
                             .draggable(file.url)
                             .contextMenu { ModelContextMenu(file: file) }
@@ -76,10 +76,12 @@ struct ModelListView: View {
                     }
                 }
                 .pickerStyle(.inline)
+                Divider()
                 if let category = library.selectedCategory {
-                    Divider()
                     Button("Show in Finder") { library.revealInFinder(category.url) }
                 }
+                Button("Find Duplicates…") { library.isShowingDuplicates = true }
+                    .disabled(library.files.isEmpty)
             } label: {
                 Image(systemName: "arrow.up.arrow.down")
             }

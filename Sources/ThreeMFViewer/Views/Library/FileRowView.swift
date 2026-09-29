@@ -7,8 +7,8 @@ import ThreeMFRendering
 struct FileRowView: View {
     let file: ModelFileItem
     var showsFolder = true
-    /// Estimated print time of a sliced project.
-    var printTime: TimeInterval?
+    /// Print time and filament of a sliced project.
+    var summary: SliceSummary?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -22,12 +22,8 @@ struct FileRowView: View {
                 HStack(spacing: 6) {
                     Text(details)
                         .lineLimit(1)
-                    if let printTime {
-                        Label(PrintFormatter.app.duration(printTime), systemImage: "clock")
-                            .labelStyle(CompactLabelStyle())
-                            .lineLimit(1)
-                            .help("Print time")
-                    }
+                    PrintBadges(summary: summary)
+                        .lineLimit(1)
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

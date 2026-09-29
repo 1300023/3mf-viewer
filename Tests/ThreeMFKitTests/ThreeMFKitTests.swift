@@ -144,6 +144,36 @@ final class ThreeMFKitTests: XCTestCase {
         XCTAssertEqual(size.x, 10, accuracy: 1e-6)
     }
 
+    func testAuthorPhotosAndDescription() throws {
+        let url = try fixture("extras")
+        let model = try ThreeMFReader.load(url: url)
+        let extras = try ThreeMFReader.extras(url: url, metadata: model.metadata)
+
+        // Model pictures first; the slicer's .thumbnails, non-images and same-name copies are skipped.
+        XCTAssertEqual(extras.photos.map(\.name), ["photo.png", "second.jpg"])
+        XCTAssertTrue(extras.photos[0].path.contains("Model Pictures"))
+        XCTAssertEqual(extras.description, "Hook\n\nStrong hook & holder.\n\n• No supports\n• PLA or PETG")
+        XCTAssertEqual(extras.profileTitle, "0.2mm layer, 2 walls")
+        XCTAssertNil(extras.profileDescription)
+        XCTAssertFalse(extras.isEmpty)
+
+        XCTAssertTrue(try ThreeMFReader.extras(url: fixture("cube"), metadata: []).isEmpty)
+    }
+
+    func testHTMLToPlainText() {
+        XCTAssertEqual(HTMLText.plainText("&lt;p&gt;A&amp;amp;B&lt;/p&gt;"), "A&B")
+        XCTAssertEqual(HTMLText.plainText("One<br>Two<script>x()</script>"), "One\nTwo")
+        XCTAssertEqual(HTMLText.decodeEntities("&#34;x&#x41;&unknown; &"), "\"xA&unknown; &")
+    }
+
+    func testFilamentGramsForCost() throws {
+        let summary = try XCTUnwrap(ThreeMFReader.sliceSummary(url: fixture("bambu_plates")))
+        XCTAssertEqual(summary.filamentGrams, ["PLA": 7.5, "PETG": 23])
+        XCTAssertEqual(FilamentUsage.gramsByType([FilamentUsage(slot: 1)], weight: 12), ["": 12])
+        let model = try ThreeMFReader.load(url: fixture("bambu_plates"))
+        XCTAssertEqual(model.project.totalGramsByType, ["PLA": 7.5, "PETG": 23])
+    }
+
     // MARK: - STL / OBJ
 
     func testSTLBinaryAndASCII() throws {

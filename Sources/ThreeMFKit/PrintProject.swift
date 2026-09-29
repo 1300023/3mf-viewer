@@ -91,6 +91,13 @@ public struct PrintProject: Sendable {
         return values.isEmpty ? nil : values.reduce(0, +)
     }
 
+    /// Grams per filament type over all sliced plates ("" = unknown type).
+    public var totalGramsByType: [String: Double] {
+        plates.compactMap(\.slice).reduce(into: [:]) { result, slice in
+            result.merge(slice.gramsByType, uniquingKeysWith: +)
+        }
+    }
+
     /// Filament usage of all sliced plates, merged by slot.
     public var totalFilaments: [FilamentUsage] {
         Self.merge(plates.compactMap(\.slice).flatMap(\.filaments))
@@ -117,12 +124,34 @@ public struct SliceSummary: Hashable, Sendable {
     public var printTime: TimeInterval
     public var weight: Double?
     public var slicedPlates: Int
+    /// Grams per filament type ("" = type unknown), for cost estimates.
+    public var filamentGrams: [String: Double]
 
-    public init(printTime: TimeInterval, weight: Double? = nil, slicedPlates: Int = 1) {
+    public init(printTime: TimeInterval, weight: Double? = nil, slicedPlates: Int = 1,
+                filamentGrams: [String: Double] = [:]) {
         self.printTime = printTime
         self.weight = weight
         self.slicedPlates = slicedPlates
+        self.filamentGrams = filamentGrams
     }
+}
+
+extension FilamentUsage {
+    /// Grams per filament type ("" = unknown). When no filament lists its grams, the whole `weight` counts as unknown.
+    public static func gramsByType(_ usages: [FilamentUsage], weight: Double?) -> [String: Double] {
+        var result: [String: Double] = [:]
+        for usage in usages {
+            guard let grams = usage.grams, grams > 0 else { continue }
+            result[usage.type?.uppercased() ?? "", default: 0] += grams
+        }
+        if result.isEmpty, let weight, weight > 0 { result[""] = weight }
+        return result
+    }
+}
+
+extension SliceInfo {
+    /// Grams per filament type of this plate.
+    public var gramsByType: [String: Double] { FilamentUsage.gramsByType(filaments, weight: weight) }
 }
 
 // MARK: - Parsing

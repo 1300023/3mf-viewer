@@ -383,9 +383,50 @@ def make_mesh_files():
     write_raw("two cubes.mtl", "newmtl Red\nKd 1 0 0\n\nnewmtl Green\nKd 0 1 0\nd 0.5\n")
 
 
+def make_extras():
+    """A MakerWorld-style file: author photos in Auxiliaries/ and an HTML description."""
+    verts, tris = cube(10.0)
+    description = ("<h2>Hook</h2><p>Strong&nbsp;hook &amp; holder.</p><figure><img src=\"https://example.com/a.png\"></figure>"
+                   "<ul><li>No supports</li><li>PLA or PETG</li></ul>")
+    escaped = description.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    model = f"""<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+ <metadata name="Title">Hook</metadata>
+ <metadata name="Description">{escaped}</metadata>
+ <metadata name="ProfileTitle">0.2mm layer, 2 walls</metadata>
+ <resources>
+  <object id="1" type="model">
+   <mesh>
+    <vertices>
+{vertices_xml(verts)}
+    </vertices>
+    <triangles>
+{triangles_xml(tris)}
+    </triangles>
+   </mesh>
+  </object>
+ </resources>
+ <build>
+  <item objectid="1"/>
+ </build>
+</model>"""
+    write("extras.3mf", {
+        "[Content_Types].xml": CONTENT_TYPES,
+        "_rels/.rels": RELS.format(thumb="Metadata/thumbnail.png"),
+        "3D/3dmodel.model": model,
+        "Metadata/thumbnail.png": png(),
+        "Auxiliaries/Profile Pictures/photo.png": png(rgb=(1, 1, 1)),
+        "Auxiliaries/Model Pictures/photo.png": png(rgb=(1, 1, 1)),
+        "Auxiliaries/Model Pictures/second.jpg": png(rgb=(2, 2, 2)),
+        "Auxiliaries/.thumbnails/thumbnail_3mf.png": png(rgb=(3, 3, 3)),
+        "Auxiliaries/Assembly Guide/guide.pdf": b"%PDF-1.4",
+    })
+
+
 if __name__ == "__main__":
     make_cube()
     make_bambu()
     make_prusa()
     make_bambu_plates()
     make_mesh_files()
+    make_extras()

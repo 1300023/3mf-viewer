@@ -155,9 +155,14 @@ public enum ThreeMFReader {
         let times = plates.compactMap(\.printTime)
         guard !times.isEmpty else { return nil }
         let weights = plates.compactMap(\.weight)
+        var grams: [String: Double] = [:]
+        for plate in plates {
+            grams.merge(plate.gramsByType, uniquingKeysWith: +)
+        }
         return SliceSummary(printTime: times.reduce(0, +),
                             weight: weights.isEmpty ? nil : weights.reduce(0, +),
-                            slicedPlates: times.count)
+                            slicedPlates: times.count,
+                            filamentGrams: grams)
     }
 
     // MARK: - Helpers

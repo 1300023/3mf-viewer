@@ -30,6 +30,10 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
+        .sheet(isPresented: $library.isShowingDuplicates) {
+            DuplicatesView()
+                .environmentObject(library)
+        }
         .alert("Could not complete the operation", isPresented: errorBinding) {
             Button("OK") { library.errorMessage = nil }
         } message: {

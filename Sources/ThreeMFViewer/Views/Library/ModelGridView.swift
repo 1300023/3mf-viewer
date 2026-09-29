@@ -37,7 +37,7 @@ struct ModelGridView: View {
                     ForEach(files) { file in
                         ModelTile(file: file,
                                   isSelected: library.selection == file.id,
-                                  printTime: library.sliceSummary(for: file)?.printTime,
+                                  summary: library.sliceSummary(for: file),
                                   showsFolder: showsFolder(file))
                             .id(file.id)
                             .draggable(file.url)
@@ -106,7 +106,7 @@ struct GridKeyboardNavigation: ViewModifier {
 private struct ModelTile: View {
     let file: ModelFileItem
     let isSelected: Bool
-    let printTime: TimeInterval?
+    let summary: SliceSummary?
     let showsFolder: Bool
 
     var body: some View {
@@ -119,12 +119,11 @@ private struct ModelTile: View {
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 6) {
-                Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-                if let printTime {
-                    Label(PrintFormatter.app.duration(printTime), systemImage: "clock")
-                        .labelStyle(CompactLabelStyle())
-                        .help("Print time")
+                // A tile is narrow: sliced projects show time and cost instead of the file size.
+                if summary == nil {
+                    Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
                 }
+                PrintBadges(summary: summary)
             }
             .font(.caption)
             .foregroundStyle(.secondary)

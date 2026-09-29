@@ -1,10 +1,12 @@
 import AppKit
 import SwiftUI
 import ThreeMFKit
+import ThreeMFLibrary
 import ThreeMFRendering
 
 /// Printer, profile and slicing results in the info panel.
 struct PrintInfoSection: View {
+    @EnvironmentObject private var costs: PrintCostStore
     let project: PrintProject
     /// nil = all plates.
     let plate: Int?
@@ -36,7 +38,7 @@ struct PrintInfoSection: View {
         if let plate {
             if let slice = project.plate(plate)?.slice {
                 sliceRows(time: slice.printTime, weight: slice.weight, meters: slice.meters,
-                          filaments: slice.filaments, note: nil)
+                          filaments: slice.filaments, grams: slice.gramsByType, note: nil)
             } else if !project.plates.isEmpty {
                 InfoRow("Print time", String(localized: "Not sliced"))
             }
@@ -49,6 +51,7 @@ struct PrintInfoSection: View {
                       weight: project.totalWeight,
                       meters: meters.isEmpty ? nil : meters.reduce(0, +),
                       filaments: filaments,
+                      grams: project.totalGramsByType,
                       note: sliced < total ? String(localized: "Sliced plates: \(sliced) of \(total)") : nil)
         } else if !project.plates.isEmpty {
             InfoRow("Print time", String(localized: "Not sliced"))
@@ -57,9 +60,13 @@ struct PrintInfoSection: View {
 
     @ViewBuilder
     private func sliceRows(time: TimeInterval?, weight: Double?, meters: Double?,
-                           filaments: [FilamentUsage], note: String?) -> some View {
+                           filaments: [FilamentUsage], grams: [String: Double], note: String?) -> some View {
         if let time {
             InfoRow("Print time", PrintFormatter.app.duration(time))
+        }
+        if let cost = costs.cost(filamentGrams: grams, printTime: time) {
+            InfoRow("Cost", costs.format(cost))
+                .help(costBreakdown(cost))
         }
         if let text = PrintFormatter.app.filament(grams: weight, meters: meters) {
             InfoRow("Filament", text)
@@ -74,6 +81,12 @@ struct PrintInfoSection: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    /// "Filament 38 ₽ + printer 7 ₽".
+    private func costBreakdown(_ cost: PrintCost) -> String {
+        guard cost.machine > 0 else { return String(localized: "Filament cost") }
+        return String(localized: "Filament \(costs.format(amount: cost.material)) + printer \(costs.format(amount: cost.machine))")
     }
 
 }

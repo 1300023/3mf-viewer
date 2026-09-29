@@ -80,6 +80,8 @@ final class LibraryModel: ObservableObject {
     /// Text of the name prompt (pre-filled with the current name when renaming).
     @Published var nameText = ""
     @Published var errorMessage: String?
+    /// The "Find Duplicates" sheet.
+    @Published var isShowingDuplicates = false
 
     private let preferences: LibraryPreferences
     private let fileService: LibraryFileService
@@ -268,9 +270,17 @@ final class LibraryModel: ObservableObject {
     }
 
     func trash(_ file: ModelFileItem) {
+        trash([file])
+    }
+
+    /// Moves models to the Trash; stops at the first file that cannot be moved.
+    @discardableResult
+    func trash(_ files: [ModelFileItem]) -> Bool {
         perform {
-            try fileService.trashModel(file.url)
-            if selection == file.id { selection = nil }
+            for file in files {
+                try fileService.trashModel(file.url)
+                if selection == file.id { selection = nil }
+            }
         }
     }
 

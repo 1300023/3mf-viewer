@@ -37,6 +37,9 @@ Slicer projects pile up fast, and `.3mf` files all look the same in Finder. Open
 - **Collections with categories.** Add one or more folders as collections. Their subfolders are categories and subcategories of any depth, shown as a tree with model counts. Create, rename and delete categories, drag models between them or use **Move to**. Every change happens in the folders themselves, so the collection on disk always has the same structure as in the app, and changes made in Finder show up in the app right away.
 - **List or gallery.** "All Models" or any category (with its subcategories) as a list or as a gallery of large thumbnails with a size slider (arrow keys move the selection). Search, sorting by name, date, size or print time. Drop model files from Finder onto a category to copy them into its folder.
 - **STL and OBJ too.** STL (binary and ASCII) and OBJ files live in the same collections, with rendered thumbnails and the 3D preview; OBJ material colours (`.mtl`) are shown, and an OBJ's own `.mtl` moves with it between categories.
+- **Find duplicates.** Identical files anywhere in your collections (compared by contents, not by name) are grouped; the copy without "(2)" / "copy" in its name is kept and the rest go to the Trash in one click.
+- **Author's photos and description.** Files from MakerWorld carry photos of the printed model, the description and the print profile notes — shown in the Photos and Description tabs.
+- **Print cost.** Set the price per kg for PLA, PETG, ABS… and, optionally, the printer's cost per hour in Settings → Print Cost; sliced projects then show an estimated cost in the list and in the info panel.
 - **Thumbnails.** Uses the preview image that Bambu Studio, OrcaSlicer, PrusaSlicer, Cura etc. embed in the file. If there is none, the model is rendered off-screen. Thumbnails are cached on disk.
 - **Interactive 3D preview** (SceneKit): orbit, zoom, pan, reset view (⌘0), turntable auto-rotation, wireframe, build-plate grid.
 - **Colours from the slicer project**: filament colours from Bambu Studio / OrcaSlicer (`project_settings.config`) and PrusaSlicer (`Slic3r_PE.config`), per-object / per-part extruders, multi-material painting (`paint_color`, `mmu_segmentation`), and 3MF material colours (`basematerials`, `colorgroup`).
@@ -146,7 +149,8 @@ Sources/ThreeMFKit/        model file parsing, no UI and no dependencies
   PaintDecoder.swift         multi-material painting decoder
   MeshFileReaders.swift      STL (binary / ASCII) and OBJ + MTL
   ThreeMFReader.swift        public API: load(url:), thumbnailData(url:), printProject(url:)
-Sources/ThreeMFLibrary/    collections on disk, no UI: scanner, file operations, filtering / sorting,
+  ModelExtras.swift          author photos (Auxiliaries/) and description (HTML → text)
+Sources/ThreeMFLibrary/    collections on disk, no UI: scanner, file operations, filtering / sorting, duplicates, print cost,
                            settings, FSEvents watcher
 Sources/ThreeMFRendering/  SceneKit scene, off-screen renderer, print data formatting (shared with Quick Look)
 Sources/ThreeMFViewer/     the SwiftUI app

@@ -82,36 +82,3 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         }
     }
 }
-
-/// The Settings window (⌘,).
-struct SettingsView: View {
-    @AppStorage(AppLanguage.defaultsKey) private var language = AppLanguage.english.rawValue
-
-    var body: some View {
-        Form {
-            Picker("Language", selection: $language) {
-                ForEach(AppLanguage.allCases) { option in
-                    Text(option.title).tag(option.rawValue)
-                }
-            }
-            .pickerStyle(.radioGroup)
-
-            if AppLanguage.stored != AppLanguage.launched {
-                HStack(spacing: 12) {
-                    Text("The language will change after 3MF Viewer restarts.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if AppLanguage.canRelaunch {
-                        Button("Restart Now") { AppLanguage.relaunch() }
-                    }
-                }
-                .padding(.top, 6)
-            }
-        }
-        .padding(24)
-        .frame(width: 440)
-        // Re-render when the stored value changes (the condition above reads UserDefaults).
-        .id(language)
-    }
-}
