@@ -10,6 +10,8 @@ struct InfoPanel: View {
     var project = PrintProject()
     /// Selected plate; nil = all plates.
     var plate: Int?
+    /// Volume and surface of the shown model, for the cost by material.
+    var measure: MeshMeasure?
 
     private static let metadataKeys = ["Title", "Designer", "Application", "CreationDate", "License", "Copyright"]
 
@@ -46,8 +48,11 @@ struct InfoPanel: View {
                 }
             }
 
-            if !project.isEmpty {
-                PrintInfoSection(project: project, plate: plate)
+            Group {
+                if !project.isEmpty {
+                    PrintInfoSection(project: project, plate: plate)
+                }
+                MaterialCostSection(project: project, plate: plate, measure: measure)
             }
             if let format = file.format {
                 InfoRow("Format", format.displayName)

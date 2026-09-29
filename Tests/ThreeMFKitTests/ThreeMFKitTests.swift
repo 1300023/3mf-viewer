@@ -265,6 +265,16 @@ final class ThreeMFKitTests: XCTestCase {
         XCTAssertEqual(RGBAColor(hex: "#0A0B0C")?.hexString, "#0A0B0C")
     }
 
+    func testMeshVolumeAndArea() throws {
+        // A 20 mm cube (binary STL) and two 10 mm cubes (OBJ with quads).
+        let cube = try XCTUnwrap(try ModelReader.load(url: fixture("cube", "stl")).measure())
+        XCTAssertEqual(cube.volume, 8000, accuracy: 1e-3)
+        XCTAssertEqual(cube.surfaceArea, 2400, accuracy: 1e-3)
+        let cubes = try XCTUnwrap(try ModelReader.load(url: fixture("two_cubes", "obj")).measure())
+        XCTAssertEqual(cubes.volume, 2000, accuracy: 1e-3)
+        XCTAssertEqual(cubes.surfaceArea, 1200, accuracy: 1e-3)
+    }
+
     func testNotAZip() {
         XCTAssertThrowsError(try ThreeMFReader.load(data: Data("hello".utf8)))
     }

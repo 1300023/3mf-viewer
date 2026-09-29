@@ -75,9 +75,45 @@ struct CostSettingsView: View {
             }
 
             Section {
-                TextField("Printer cost per hour", value: $costs.settings.hourlyRate, format: .number)
+                TextField("Price per kWh", value: $costs.settings.electricityPrice, format: .number)
+                Picker("Printer", selection: $costs.settings.printerID) {
+                    ForEach(PrinterPower.presets) { preset in
+                        Text(preset.name).tag(preset.id)
+                    }
+                    Divider()
+                    Text("Other printer").tag(PrinterPower.customID)
+                }
+                if costs.settings.printerID == PrinterPower.customID {
+                    TextField("PLA, TPU — W", value: $costs.settings.customPower.pla, format: .number)
+                    TextField("PETG — W", value: $costs.settings.customPower.petg, format: .number)
+                    TextField("ABS, ASA, PC, PA — W", value: $costs.settings.customPower.abs, format: .number)
+                } else {
+                    LabeledContent("Average power") {
+                        Text(powerSummary(costs.settings.printerPower))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Toggle("Use the printer the project was sliced for", isOn: $costs.settings.usesProjectPrinter)
+            } header: {
+                Text("Electricity")
             } footer: {
-                Text("Cost = filament used × price per kg + print time × printer cost per hour. Filament variants such as PLA-CF use the base price.")
+                Text("Electricity = print time × printer power × price per kWh. The power is a typical average while printing, from maker data and measurements; hot beds and chambers for PETG and ABS draw more. Choose “Other printer” to enter your own values.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section {
+                TextField("Wear and other costs per hour", value: $costs.settings.hourlyRate, format: .number)
+                LabeledContent("Infill for estimates") {
+                    HStack(spacing: 4) {
+                        TextField("Infill for estimates", value: infillPercent, format: .number)
+                            .labelsHidden()
+                        Text(verbatim: "%")
+                    }
+                }
+            } footer: {
+                Text("Cost = filament used × price per kg + electricity + print time × other costs per hour. Filament variants such as PLA-CF use the base price. Models that were not sliced are estimated from their shape with this infill.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -91,6 +127,12 @@ struct CostSettingsView: View {
         .padding(24)
     }
 
+    /// "105 / 135 / 140 W (PLA / PETG / ABS)".
+    private func powerSummary(_ power: PrinterPower) -> String {
+        let values = [power.pla, power.petg, power.abs].map { String(Int($0.rounded())) }.joined(separator: " / ")
+        return "\(values) \(String(localized: "W")) (PLA / PETG / ABS)"
+    }
+
     private var currencies: [String] {
         var codes = ["RUB", "USD", "EUR", "GBP", "CNY", "KZT", "BYN", "UAH", "TRY", "PLN", "JPY", "INR", "BRL", "CAD", "AUD"]
         if !codes.contains(costs.settings.currencyCode) { codes.insert(costs.settings.currencyCode, at: 0) }
@@ -100,6 +142,14 @@ struct CostSettingsView: View {
     private func currencyTitle(_ code: String) -> String {
         let name = AppLanguage.locale.localizedString(forCurrencyCode: code) ?? code
         return "\(code) — \(name)"
+    }
+
+    /// Infill used to estimate models that were not sliced.
+    private var infillPercent: Binding<Double> {
+        Binding(
+            get: { (costs.settings.estimateInfill * 100).rounded() },
+            set: { costs.settings.estimateInfill = min(max($0, 0), 100) / 100 }
+        )
     }
 
     private func price(for type: String) -> Binding<Double> {

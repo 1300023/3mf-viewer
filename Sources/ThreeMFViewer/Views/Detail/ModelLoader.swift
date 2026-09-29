@@ -31,6 +31,8 @@ struct PlateContent {
     let viewer: ViewerScene?
     /// Shown instead of the 3D view when the plate has no geometry.
     let image: NSImage?
+    /// Volume and surface of the model on the plate.
+    var measure: MeshMeasure? = nil
 }
 
 @MainActor
@@ -137,7 +139,7 @@ final class ModelLoader: ObservableObject {
 
     nonisolated private static func makeContent(model: ThreeMFModel?, image: NSImage?) -> PlateContent {
         if let model, model.triangleCount > 0 {
-            return PlateContent(model: model, viewer: ViewerScene(model: model), image: nil)
+            return PlateContent(model: model, viewer: ViewerScene(model: model), image: nil, measure: model.measure())
         }
         return PlateContent(model: model, viewer: nil, image: image)
     }

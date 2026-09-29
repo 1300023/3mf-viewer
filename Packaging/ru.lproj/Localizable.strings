@@ -182,7 +182,7 @@
 "Filament price per kg" = "Цена филамента за кг";
 "Other types" = "Другие типы";
 "Printer cost per hour" = "Стоимость часа работы принтера";
-"Cost = filament used × price per kg + print time × printer cost per hour. Filament variants such as PLA-CF use the base price." = "Себестоимость = расход филамента × цена за кг + время печати × стоимость часа работы принтера. Для разновидностей вроде PLA-CF берётся цена базового типа.";
+"Cost = filament used × price per kg + electricity + print time × other costs per hour. Filament variants such as PLA-CF use the base price. Models that were not sliced are estimated from their shape with this infill." = "Себестоимость = расход филамента × цена за кг + электроэнергия + время печати × прочие расходы в час. Для разновидностей вроде PLA-CF берётся цена базового типа. Для ненарезанных моделей расход оценивается по форме модели с этим заполнением.";
 "Restore Defaults" = "Вернуть значения по умолчанию";
 "Cost" = "Себестоимость";
 "Filament cost" = "Стоимость филамента";
@@ -243,3 +243,29 @@
 "Build volume, mm" = "Область печати, мм";
 "Show build volume in 3D" = "Показывать область печати в 3D";
 "Models with a plate larger than the build volume are marked in the list. A model that fits only when turned by 90° counts as fitting." = "Модели со столом больше области печати отмечаются в списке. Модель, которая влезает только при повороте на 90°, считается влезающей.";
+
+/* Cost by material */
+"Cost by material" = "Стоимость по материалам";
+"The sliced amount of plastic (%@ cm³) in each filament, with the same print time. Hotter filaments use more electricity." = "Тот же объём пластика из нарезки (%@ см³) в каждом филаменте, время печати то же. Для более горячих филаментов расход электроэнергии выше.";
+"Estimate from the model's shape: %@ cm³ of plastic with walls and %@ infill, without printer time. Slice the model for exact numbers." = "Оценка по форме модели: %@ см³ пластика со стенками и заполнением %@, без учёта времени принтера. Для точных цифр нарежьте модель.";
+"Filament of the sliced project" = "Филамент нарезанного проекта";
+"Infill for estimates" = "Заполнение для оценки";
+
+/* Electricity */
+"Electricity" = "Электроэнергия";
+"filament %@" = "филамент %@";
+"electricity %@" = "электроэнергия %@";
+"printer wear %@" = "износ принтера %@";
+"kWh" = "кВт·ч";
+"W" = "Вт";
+"Your printer" = "Ваш принтер";
+"%@, about %lld W while printing" = "%@, около %lld Вт при печати";
+"Price per kWh" = "Цена за кВт·ч";
+"Other printer" = "Другой принтер";
+"PLA, TPU — W" = "PLA, TPU — Вт";
+"PETG — W" = "PETG — Вт";
+"ABS, ASA, PC, PA — W" = "ABS, ASA, PC, PA — Вт";
+"Average power" = "Средняя мощность";
+"Use the printer the project was sliced for" = "Брать принтер из нарезанного проекта";
+"Wear and other costs per hour" = "Износ и прочие расходы в час";
+"Electricity = print time × printer power × price per kWh. The power is a typical average while printing, from maker data and measurements; hot beds and chambers for PETG and ABS draw more. Choose “Other printer” to enter your own values." = "Электроэнергия = время печати × мощность принтера × цена за кВт·ч. Мощность — типичное среднее значение при печати по данным производителей и замерам; для PETG и ABS горячий стол и камера потребляют больше. Выберите «Другой принтер», чтобы ввести свои значения.";

@@ -37,12 +37,29 @@ final class PrintCostStore: ObservableObject {
     /// Cost of a whole sliced project from the library summary; nil when switched off or unknown.
     func cost(of summary: SliceSummary?) -> PrintCost? {
         guard let summary else { return nil }
-        return cost(filamentGrams: summary.filamentGrams, printTime: summary.printTime)
+        return cost(filamentGrams: summary.filamentGrams, printTime: summary.printTime, printerName: summary.printerName)
     }
 
-    func cost(filamentGrams: [String: Double], printTime: TimeInterval?) -> PrintCost? {
+    func cost(filamentGrams: [String: Double], printTime: TimeInterval?, printerName: String? = nil) -> PrintCost? {
         guard settings.isEnabled else { return nil }
-        return PrintCostCalculator.cost(filamentGrams: filamentGrams, printTime: printTime, settings: settings)
+        return PrintCostCalculator.cost(filamentGrams: filamentGrams, printTime: printTime, settings: settings,
+                                        printerName: printerName)
+    }
+
+    /// "Filament 38 ₽ + electricity 3 ₽ + printer 7 ₽" (only the parts that are not zero).
+    func breakdown(_ cost: PrintCost) -> String {
+        var parts = [String(localized: "filament \(format(amount: cost.material))")]
+        if cost.energy > 0 { parts.append(String(localized: "electricity \(format(amount: cost.energy))")) }
+        if cost.machine > 0 { parts.append(String(localized: "printer wear \(format(amount: cost.machine))")) }
+        let text = parts.joined(separator: " + ")
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+
+    /// "0.42 kWh".
+    func formatEnergy(_ kilowattHours: Double) -> String {
+        let digits = kilowattHours < 1 ? 2 : 1
+        let number = kilowattHours.formatted(.number.precision(.fractionLength(digits)).locale(AppLanguage.locale))
+        return "\(number) \(String(localized: "kWh"))"
     }
 
     /// "≈ 45 ₽".

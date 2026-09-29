@@ -92,7 +92,8 @@ struct ModelDetailView: View {
                 let panel = InfoPanel(file: file,
                                       model: loader.content?.model ?? loaded.model,
                                       project: loaded.project,
-                                      plate: loader.selectedPlate)
+                                      plate: loader.selectedPlate,
+                                      measure: loader.content?.measure)
                 // Scrolls when the window is too low for all the rows.
                 ViewThatFits(in: .vertical) {
                     panel

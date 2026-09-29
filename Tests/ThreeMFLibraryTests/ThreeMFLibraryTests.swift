@@ -389,4 +389,104 @@ final class ThreeMFLibraryTests: XCTestCase {
         XCTAssertNil(store.summary(for: changed))
         XCTAssertEqual(store.filesNeedingUpdate([changed]).count, 1)
     }
+
+    func testCostByMaterial() throws {
+        XCTAssertEqual(FilamentDensity.density(forType: "PETG HF"), 1.27)
+        XCTAssertEqual(FilamentDensity.density(forType: "pla-cf"), 1.24)
+        XCTAssertEqual(FilamentDensity.density(forType: nil), FilamentDensity.fallback)
+
+        // A 20 mm cube: 2400 mm² × 0.9 mm shell = 2160 mm³, plus 15% of the remaining 5840 mm³ = 876 → 3.036 cm³.
+        let measure = MeshMeasure(volume: 8000, surfaceArea: 2400)
+        XCTAssertEqual(MaterialCostCalculator.printedVolume(measure, infill: 0.15), 3.036, accuracy: 1e-9)
+        XCTAssertEqual(MaterialCostCalculator.printedVolume(measure, infill: 1), 8, accuracy: 1e-9)
+        // A thin part is all shell.
+        XCTAssertEqual(MaterialCostCalculator.printedVolume(MeshMeasure(volume: 100, surfaceArea: 1000), infill: 0), 0.1,
+                       accuracy: 1e-9)
+
+        let settings = PrintCostSettings(currencyCode: "RUB", pricePerKg: ["PLA": 1500, "PETG": 2000],
+                                         otherPricePerKg: 3000, hourlyRate: 10)
+        // 124 g of PLA = 100 cm³.
+        let volume = MaterialCostCalculator.volume(filamentGrams: ["PLA Basic": 124])
+        XCTAssertEqual(volume, 100, accuracy: 1e-9)
+        let comparison = try XCTUnwrap(MaterialCostCalculator.compare(
+            volume: volume, printTime: 3600, source: .sliced, currentTypes: ["PLA Basic"], settings: settings,
+            types: ["PLA", "PETG", "ABS"]))
+        XCTAssertEqual(comparison.rows.map(\.type), ["PLA", "PETG", "ABS"])
+        XCTAssertEqual(comparison.rows.map(\.isCurrent), [true, false, false])
+        let petg = comparison.rows[1]
+        XCTAssertEqual(petg.grams, 127, accuracy: 1e-9)
+        XCTAssertEqual(petg.cost.material, 254, accuracy: 1e-9)
+        XCTAssertEqual(petg.cost.machine, 10, accuracy: 1e-9)
+        XCTAssertEqual(comparison.rows[2].cost.material, 104 * 3, accuracy: 1e-9)   // ABS: "other" price
+        XCTAssertNil(MaterialCostCalculator.compare(volume: 0, printTime: nil, source: .estimated, settings: settings))
+    }
+
+    func testCostSettingsFromOlderVersion() throws {
+        let old = #"{"isEnabled":true,"currencyCode":"RUB","pricePerKg":{"PLA":1500},"otherPricePerKg":2000,"hourlyRate":5}"#
+        let settings = try JSONDecoder().decode(PrintCostSettings.self, from: Data(old.utf8))
+        XCTAssertEqual(settings.estimateInfill, PrintCostSettings.defaultInfill)
+        XCTAssertEqual(settings.hourlyRate, 5)
+        XCTAssertEqual(settings.electricityPrice, 8)
+        XCTAssertEqual(settings.printerID, PrintCostSettings.defaultPrinterID)
+        XCTAssertTrue(settings.usesProjectPrinter)
+        let roundTrip = try JSONDecoder().decode(PrintCostSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertEqual(roundTrip, settings)
+    }
+
+    func testPrinterPowerPresets() {
+        XCTAssertEqual(Set(PrinterPower.presets.map(\.id)).count, PrinterPower.presets.count)
+        func id(_ name: String?) -> String? { PrinterPower.preset(forPrinterName: name)?.id }
+        XCTAssertEqual(id("Bambu Lab P1S"), "bambu-p1s")
+        XCTAssertEqual(id("Bambu Lab P1S 0.4 nozzle"), "bambu-p1s")
+        XCTAssertEqual(id("Bambu Lab P2S"), "bambu-p2s")
+        XCTAssertEqual(id("Bambu Lab A1 mini"), "bambu-a1-mini")
+        XCTAssertEqual(id("Bambu Lab A1"), "bambu-a1")
+        XCTAssertEqual(id("Bambu Lab X1 Carbon"), "bambu-x1c")
+        XCTAssertEqual(id("Bambu Lab X1E"), "bambu-x1e")
+        XCTAssertEqual(id("Original Prusa MK4S"), "prusa-mk4")
+        XCTAssertEqual(id("Prusa CORE One HF0.4 nozzle"), "prusa-core-one")
+        XCTAssertEqual(id("Creality K1 Max (0.4 nozzle)"), "creality-k1-max")
+        XCTAssertEqual(id("Creality K1C"), "creality-k1")
+        XCTAssertNil(id("Some Printer 3000"))
+        XCTAssertNil(id(nil))
+
+        let p1s = PrinterPower.preset(id: "bambu-p1s")!
+        XCTAssertEqual(p1s.watts(forType: "PLA"), 105)
+        XCTAssertEqual(p1s.watts(forType: "PETG HF"), 135)
+        XCTAssertEqual(p1s.watts(forType: "ASA"), 140)
+        XCTAssertEqual(p1s.watts(forType: nil), 105)
+    }
+
+    func testElectricityCost() throws {
+        var settings = PrintCostSettings(currencyCode: "RUB", pricePerKg: ["PLA": 1500], otherPricePerKg: 1500,
+                                         hourlyRate: 10, electricityPrice: 8, printerID: "bambu-a1")
+        // 2 hours of PLA: the P1S project uses the P1S (105 W) → 0.21 kWh × 8 = 1.68.
+        let cost = try XCTUnwrap(PrintCostCalculator.cost(filamentGrams: ["PLA": 100], printTime: 7200,
+                                                          settings: settings, printerName: "Bambu Lab P1S"))
+        XCTAssertEqual(cost.material, 150, accuracy: 1e-9)
+        XCTAssertEqual(cost.kilowattHours, 0.21, accuracy: 1e-9)
+        XCTAssertEqual(cost.energy, 1.68, accuracy: 1e-9)
+        XCTAssertEqual(cost.machine, 20, accuracy: 1e-9)
+        XCTAssertEqual(cost.total, 171.68, accuracy: 1e-9)
+        XCTAssertEqual(cost.printer?.id, "bambu-p1s")
+
+        // Unknown project printer → the chosen printer (A1, 95 W).
+        let other = try XCTUnwrap(PrintCostCalculator.cost(filamentGrams: ["PLA": 100], printTime: 3600,
+                                                           settings: settings, printerName: "Something"))
+        XCTAssertEqual(other.kilowattHours, 0.095, accuracy: 1e-9)
+
+        // The user's own values, and the project printer ignored.
+        settings.printerID = PrinterPower.customID
+        settings.customPower.pla = 50
+        settings.usesProjectPrinter = false
+        let custom = try XCTUnwrap(PrintCostCalculator.cost(filamentGrams: ["PLA": 100], printTime: 3600,
+                                                            settings: settings, printerName: "Bambu Lab P1S"))
+        XCTAssertEqual(custom.kilowattHours, 0.05, accuracy: 1e-9)
+
+        // Without a print time there is no electricity.
+        let unknownTime = try XCTUnwrap(PrintCostCalculator.cost(filamentGrams: ["PLA": 100], printTime: nil,
+                                                                 settings: settings))
+        XCTAssertEqual(unknownTime.energy, 0)
+        XCTAssertEqual(unknownTime.total, 150, accuracy: 1e-9)
+    }
 }

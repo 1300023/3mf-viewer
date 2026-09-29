@@ -64,9 +64,13 @@ struct PrintInfoSection: View {
         if let time {
             InfoRow("Print time", PrintFormatter.app.duration(time))
         }
-        if let cost = costs.cost(filamentGrams: grams, printTime: time) {
+        if let cost = costs.cost(filamentGrams: grams, printTime: time, printerName: project.printerName) {
             InfoRow("Cost", costs.format(cost))
-                .help(costBreakdown(cost))
+                .help(costs.breakdown(cost))
+            if cost.kilowattHours > 0, costs.settings.electricityPrice > 0 {
+                InfoRow("Electricity", "\(costs.formatEnergy(cost.kilowattHours)) · \(costs.format(amount: cost.energy))")
+                    .help(powerHelp(cost))
+            }
         }
         if let text = PrintFormatter.app.filament(grams: weight, meters: meters) {
             InfoRow("Filament", text)
@@ -83,10 +87,12 @@ struct PrintInfoSection: View {
         }
     }
 
-    /// "Filament 38 ₽ + printer 7 ₽".
-    private func costBreakdown(_ cost: PrintCost) -> String {
-        guard cost.machine > 0 else { return String(localized: "Filament cost") }
-        return String(localized: "Filament \(costs.format(amount: cost.material)) + printer \(costs.format(amount: cost.machine))")
+    /// "Bambu Lab P1S, about 105 W while printing".
+    private func powerHelp(_ cost: PrintCost) -> String {
+        guard let printer = cost.printer else { return "" }
+        let name = printer.id == PrinterPower.customID ? String(localized: "Your printer") : printer.name
+        let watts = Int(cost.watts.rounded())
+        return String(localized: "\(name), about \(watts) W while printing")
     }
 
 }

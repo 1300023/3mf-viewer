@@ -126,13 +126,16 @@ public struct SliceSummary: Hashable, Sendable {
     public var slicedPlates: Int
     /// Grams per filament type ("" = type unknown), for cost estimates.
     public var filamentGrams: [String: Double]
+    /// The printer the project was sliced for (Bambu Lab printers), for its power use.
+    public var printerName: String?
 
     public init(printTime: TimeInterval, weight: Double? = nil, slicedPlates: Int = 1,
-                filamentGrams: [String: Double] = [:]) {
+                filamentGrams: [String: Double] = [:], printerName: String? = nil) {
         self.printTime = printTime
         self.weight = weight
         self.slicedPlates = slicedPlates
         self.filamentGrams = filamentGrams
+        self.printerName = printerName
     }
 }
 

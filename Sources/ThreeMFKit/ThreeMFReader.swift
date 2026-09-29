@@ -159,10 +159,15 @@ public enum ThreeMFReader {
         for plate in plates {
             grams.merge(plate.gramsByType, uniquingKeysWith: +)
         }
+        // Bambu printer code from the slice info, otherwise the printer of the project settings (OrcaSlicer…).
+        let printer = plates.lazy.compactMap(\.printerModelID).first
+            .map { PrintProjectParser.bambuPrinterName(code: $0) ?? $0 }
+            ?? ProjectSettings.load(from: archive).printerName
         return SliceSummary(printTime: times.reduce(0, +),
                             weight: weights.isEmpty ? nil : weights.reduce(0, +),
                             slicedPlates: times.count,
-                            filamentGrams: grams)
+                            filamentGrams: grams,
+                            printerName: printer)
     }
 
     // MARK: - Helpers
